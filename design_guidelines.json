@@ -1,0 +1,154 @@
+{
+  "theme_overview": {
+    "name": "Ethereal Glassmorphism",
+    "archetype": "PASTEL & SOFT with LUXURY edges",
+    "description": "A modern, futuristic, yet romantic Gen-Z wedding aesthetic. Features a bright soft pink palette, beautiful glass effects (crystal glassmorphism), and gently moving aesthetic flowers to create an immersive, ethereal experience. The vibe is 'kekinian', fun, but heavily romantic.",
+    "theme_mode": "light"
+  },
+  "typography": {
+    "strategy": "The 'Old Money Tech' mixed with 'Youthful Energy'. Elegant high-contrast serif for headings to feel romantic and luxurious, paired with a geometric clean sans-serif for body to keep it modern, young, and readable.",
+    "fonts": {
+      "headings": {
+        "family": "Playfair Display, serif",
+        "weights": ["400", "500", "700"],
+        "usage": "Use for all H1, H2, and massive text blocks. Apply tracking-tighter for a modern look."
+      },
+      "body": {
+        "family": "Plus Jakarta Sans, sans-serif",
+        "weights": ["400", "500", "600"],
+        "usage": "Use for all paragraphs, UI elements, and button text."
+      },
+      "accent": {
+        "family": "Italiana, serif",
+        "weights": ["400"],
+        "usage": "Use sparingly for beautiful romantic pull quotes or large decorative section numbers."
+      }
+    },
+    "hierarchy": {
+      "h1": "text-5xl md:text-6xl+ tracking-tighter font-serif text-pink-950",
+      "h2": "text-4xl md:text-5xl tracking-tight font-serif text-pink-900",
+      "h3": "text-2xl md:text-3xl font-serif text-pink-800",
+      "body": "text-base md:text-lg font-sans text-pink-950/80 leading-relaxed",
+      "small_labels": "text-xs tracking-[0.2em] uppercase font-sans font-semibold text-pink-600"
+    }
+  },
+  "colors": {
+    "background": {
+      "base": "#FFF5F8",
+      "alt": "#FFE4E8"
+    },
+    "surface": {
+      "glass": "rgba(255, 255, 255, 0.4)",
+      "glass_heavy": "rgba(255, 255, 255, 0.7)",
+      "solid": "#FFFFFF"
+    },
+    "text": {
+      "primary": "#4C0519",
+      "secondary": "#881337",
+      "muted": "#BE185D"
+    },
+    "brand": {
+      "primary": "#E11D48",
+      "primary_hover": "#BE185D",
+      "accent": "#F43F5E"
+    },
+    "status": {
+      "available": "#10B981",
+      "limited": "#F59E0B",
+      "full": "#EF4444"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "default": "backdrop-blur-xl bg-white/40 border border-white/60 shadow-[0_8px_32px_rgba(225,29,72,0.1)]",
+      "heavy": "backdrop-blur-2xl bg-white/60 border border-white/80 shadow-[0_8px_32px_rgba(225,29,72,0.15)]",
+      "rules": "Never use complete transparency over images. Ensure text contrast. For heavy overlapping items, add a subtle inner white border (1px)."
+    },
+    "animated_flowers": {
+      "library": "framer-motion",
+      "implementation": "Create abstract SVG flower/petal components. Position them absolute across the hero and section gaps. Use framer-motion to animate 'y' (floating up/down slowly) and 'rotate' (gentle twisting). Use opacity-30 to opacity-50 so they don't distract from content.",
+      "vibe": "Ethereal, futuristic but beautiful."
+    },
+    "logo_treatment": {
+      "instruction": "The provided logo in /app/assets/image-4.png is white/low contrast. To make it contrasting pink against the soft background, use CSS mask-image approach: a div with background-color of brand pink (e.g. bg-rose-600), and mask-image set to the logo URL. Alternatively, use CSS filters: brightness(0) saturate(100%) invert(24%) sepia(87%) saturate(3061%) hue-rotate(334deg) brightness(91%) contrast(98%)."
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "rounded-full bg-rose-600 text-white font-medium hover:bg-rose-700 transition-all shadow-lg hover:shadow-rose-600/25 hover:-translate-y-0.5",
+      "secondary": "rounded-full backdrop-blur-md bg-white/50 border border-rose-200 text-rose-800 font-medium hover:bg-white/80 transition-all"
+    },
+    "cards": {
+      "package_card": "Apply glassmorphism.default. Add rounded-3xl. For 'Premium' or recommended, add an animated border gradient or use glassmorphism.heavy.",
+      "testimonial_card": "rounded-2xl bg-white/50 backdrop-blur-sm p-6 border border-white/60"
+    },
+    "marquee": {
+      "style": "bg-rose-600 text-white py-4 overflow-hidden",
+      "text_style": "text-2xl font-serif italic tracking-wider uppercase px-4"
+    },
+    "inputs": {
+      "style": "bg-white/60 backdrop-blur-sm border-rose-200 focus:border-rose-400 focus:ring-rose-400 rounded-xl"
+    },
+    "whatsapp_popup": {
+      "style": "fixed bottom-6 right-6 z-50 rounded-2xl glassmorphism.heavy p-4 flex flex-col gap-3 shadow-2xl border-white"
+    }
+  },
+  "grids_layouts": {
+    "spacing_system": "Generous spacing. Use py-24 or py-32 for sections. Container px-6 md:px-12.",
+    "hero": "min-h-screen relative flex items-center justify-center overflow-hidden. Hero image as absolute background object (w-full h-full object-cover), but overlaid heavily with bg-pink-50/70 backdrop-blur-sm so the massive pink logo and CTA pop on top.",
+    "bento_grid": "For packages: grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6. Stretch to h-full."
+  },
+  "motion": {
+    "page_load": "All elements must have entrance animations. Use framer-motion staggered fade-up for texts and cards.",
+    "scroll": "Parallax effect on the hero image (moves slower than scroll).",
+    "flowers": "Continuous slow float (y: [0, -20, 0], transition: { repeat: Infinity, duration: 8, ease: 'easeInOut' }).",
+    "hover": "Scale cards slightly (1.02), buttons translate Y."
+  },
+  "accessibility": {
+    "contrast": "Ensure pink-900 text on pink-50/white background meets 4.5:1 ratio. Glass components MUST have white/solid fallbacks or sufficient opacity so text underneath doesn't blend.",
+    "reduced_motion": "Respect prefers-reduced-motion for the continuous flower floating.",
+    "test_ids": "Apply data-testid to all interactive elements (e.g., data-testid='package-booking-btn', data-testid='admin-login-submit')."
+  },
+  "media": {
+    "assets": {
+      "owner_fikabi": "/app/assets/image-1.jpg",
+      "manager_asty": "/app/assets/image-2.jpg",
+      "hero_couple": "/app/assets/image-3.jpg",
+      "logo": "/app/assets/image-4.png",
+      "aesthetic_fallback_1": "https://images.unsplash.com/photo-1593472129865-f71f62103a47?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHw0fHxhZXN0aGV0aWMlMjB3ZWRkaW5nJTIwc29mdCUyMHBpbmslMjBkZXRhaWxzfGVufDB8fHx8MTc4Nzg3MDU4OXww&ixlib=rb-4.1.0&q=85"
+    },
+    "treatment": "All photos should have rounded-2xl or rounded-3xl corners unless full bleed. Add a subtle pink-tinted shadow (shadow-rose-900/10) to images."
+  },
+  "libraries_to_install": [
+    "framer-motion",
+    "react-fast-marquee",
+    "lucide-react",
+    "date-fns",
+    "react-day-picker",
+    "clsx",
+    "tailwind-merge"
+  ],
+  "instructions_to_main_agent": [
+    "Design a stunning, youthful, modern romantic landing page and admin dashboard based on these rules.",
+    "Use Framer Motion to create 'floating aesthetic flowers' (can be simple inline SVGs like petals or 4-leaf blossoms) that move gently in the background of the hero and spacer sections.",
+    "Implement endless running text using react-fast-marquee. Fill it with youthful wedding phrases: 'RAW CONTENT IN 24 HOURS • UNLIMITED FOOTAGE • TREN KEKINIAN • CAPTURE YOUR MOMENT • ESTETIK & ROMANTIS'.",
+    "For the hero section, place the image-3.jpg as the background, but add a glass/white/pink heavy overlay so it feels 'ethereal'. Inside this hero, display the massive logo (image-4.png) heavily masked or CSS-filtered into a bright contrasting pink.",
+    "Implement the 'Masuk sebagai admin' discreetly in the footer. The admin dashboard should use a cleaner, denser variation of the glassmorphism theme, containing a calendar widget to manage slots and a table for bookings.",
+    "Auto-calculate distance from Bekasi in the booking form: Mock this functionality, but design the UI to show 'Jarak dari Bekasi: X km' and 'Biaya Transport: Rp Y'. Highlight this functionality is MOCKED.",
+    "Create beautiful Glassmorphic cards for the 4 packages (Basic 150k, Classic 250k, Special 350k, Premium 650k).",
+    "Ensure the tone of the copy in the UI is 'asyik tapi romantis' (young, fresh, but sweet)."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) and 1px semi-transparent borders.",
+    "You MUST NOT apply universal transition. Eg: `transition: all`. Always add transitions for specific interactive elements.",
+    "You MUST NOT center align the app container, ie do not add `.App { text-align: center; }`.",
+    "Always use modern button styles like pill-shaped, with interaction animations.",
+    "Every interaction needs micro-animations - hover states, transitions, entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "All interactive and key informational elements MUST include a `data-testid` attribute.",
+    "Use `sonner` for toasts if applicable."
+  ]
+}
