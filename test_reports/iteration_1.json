@@ -1,0 +1,22 @@
+{
+  "summary": "Tested admin login regression for SESI RESEPSI. Backend: 13/13 pytest cases passed covering Biyan/Asty/owner-email login, case-insensitive alias, protected /api/auth/me and /api/bookings with owner token, and safe error responses. Frontend: Playwright end-to-end verified /admin/login flow — owner email fikabisadimartyansyah@gmail.com/Biyan2026 navigates to /admin, Biyan and Asty also succeed, invalid password stays on /admin/login with error, placeholder now reads 'Username atau email admin', and mobile 390px viewport keeps inputs/button usable. Reported user bug 'gagal masuk menjadi admin' is resolved.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_auth_login.py", "/app/test_reports/pytest/auth_login.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Passwords are stored in plain-text env vars and compared directly (req.password != account[1]); consider bcrypt hashing per playbook.",
+    "No brute-force lockout on /api/auth/login — playbook recommends lockout after 5 failed attempts.",
+    "JWT_SECRET is committed inside /app/backend/.env — rotate before production.",
+    "Login uses Bearer token in localStorage rather than httpOnly cookies (playbook prefers httpOnly cookies with credentials).",
+    "server.py is 538 lines — nearing the 700-line split threshold; consider modularising auth/uploads/settings."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Owner fikabisadimartyansyah@gmail.com/Biyan2026, Biyan/Biyan2026, Asty/Asty2026 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Auth alias for owner email is implemented via ADMIN_BIYAN_EMAIL env var mapped in ADMINS dict (server.py:179-192) with .strip().lower() normalisation. Frontend AdminLogin uses data-testid admin-username/admin-password/admin-login-submit; token stored in localStorage under sr_token. Backend security recommendations (bcrypt, lockout, httpOnly cookies) remain open enhancements — not blocking current functionality.",
+  "rca of the issue": "Original 401 for owner email happened because ADMINS map only contained Biyan/Asty usernames. Fix adds ADMIN_BIYAN_EMAIL as second key in ADMINS with same Biyan display name/password and normalises input via .strip().lower(), so email and mixed-case variants now authenticate and receive a JWT tied to display name 'Biyan'."
+}

@@ -48,6 +48,9 @@ dan permukaan glassmorphism.
 - Ada peringatan ESLint lama di `AdminDashboard.jsx` tentang dependency `useEffect`.
 - Health check deployment berhasil tanpa temuan blocker untuk React, FastAPI, MongoDB, dan Supervisor.
 - Konfigurasi environment, routing `/api`, seeding MongoDB, serta kompilasi dinyatakan siap rilis.
+- Perbaikan login admin: email owner `fikabisadimartyansyah@gmail.com` kini menjadi alias
+  login untuk akun Biyan dan input menerima username atau email.
+- Pengujian independen auth (13 backend test dan alur Playwright desktop/mobile) lulus 100%.
 
 ## Backlog Prioritas
 

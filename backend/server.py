@@ -22,7 +22,7 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'sesi-resepsi-secret')
+JWT_SECRET = os.environ["JWT_SECRET"]
 EMERGENT_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
@@ -177,23 +177,27 @@ class Availability(BaseModel):
 
 # ================= AUTH =================
 ADMINS = {
-    "Biyan": "Biyan2026",
-    "Asty": "Asty2026",
-    "biyan": "Biyan2026",
-    "asty": "Asty2026",
+    os.environ["ADMIN_BIYAN_USERNAME"].strip().lower(): (
+        "Biyan",
+        os.environ["ADMIN_BIYAN_PASSWORD"],
+    ),
+    os.environ["ADMIN_BIYAN_EMAIL"].strip().lower(): (
+        "Biyan",
+        os.environ["ADMIN_BIYAN_PASSWORD"],
+    ),
+    os.environ["ADMIN_ASTY_USERNAME"].strip().lower(): (
+        "Asty",
+        os.environ["ADMIN_ASTY_PASSWORD"],
+    ),
 }
 
 
 @api_router.post("/auth/login")
 async def login(req: LoginReq):
-    # case-insensitive lookup for display
-    display_name = None
-    for uname, pwd in ADMINS.items():
-        if uname.lower() == req.username.lower() and pwd == req.password:
-            display_name = "Biyan" if uname.lower() == "biyan" else "Asty"
-            break
-    if not display_name:
+    account = ADMINS.get(req.username.strip().lower())
+    if not account or req.password != account[1]:
         raise HTTPException(status_code=401, detail="Username atau password salah nih kak")
+    display_name = account[0]
     token = make_token(display_name)
     return {"token": token, "username": display_name}
 

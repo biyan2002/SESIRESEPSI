@@ -45,7 +45,7 @@ const AdminLogin = () => {
           <p className="text-rose-800/70 text-sm mt-1">Login dulu ya kak~</p>
         </div>
         <input
-          placeholder="Username"
+          placeholder="Username atau email admin"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           className="w-full rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500 mb-3"
