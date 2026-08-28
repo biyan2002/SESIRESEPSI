@@ -17,7 +17,7 @@ const BookingForm = ({ selectedPackage }) => {
   const [pkgId, setPkgId] = useState("");
   const [form, setForm] = useState({
     name: "", whatsapp: "", event_type: "", event_date: "", event_time: "",
-    address: "", notes: "",
+    address: "", maps_link: "", notes: "",
   });
   const [manualDistance, setManualDistance] = useState("");
   const [paymentType, setPaymentType] = useState("dp");
@@ -159,18 +159,26 @@ const BookingForm = ({ selectedPackage }) => {
       </h3>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <input placeholder="Nama lengkap" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+        <input placeholder="Nama Pasangan Pria & Wanita" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
           className="rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-name" />
         <input placeholder="WhatsApp aktif" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
           className="rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-wa" />
         <input placeholder="Jenis acara (Resepsi/Akad/dll)" value={form.event_type} onChange={(e) => setForm({ ...form, event_type: e.target.value })}
           className="rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-type" />
-        <input type="date" value={form.event_date} onChange={(e) => setForm({ ...form, event_date: e.target.value })}
-          className="rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-date" />
-        <input type="time" value={form.event_time} onChange={(e) => setForm({ ...form, event_time: e.target.value })}
-          className="rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-time" />
+        <label className="space-y-1 text-xs font-semibold text-rose-700">
+          Tanggal berapa acaranya?
+          <input type="date" value={form.event_date} onChange={(e) => setForm({ ...form, event_date: e.target.value })}
+            className="w-full rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-date" />
+        </label>
+        <label className="space-y-1 text-xs font-semibold text-rose-700">
+          Acaranya jam berapa kak?
+          <input type="time" value={form.event_time} onChange={(e) => setForm({ ...form, event_time: e.target.value })}
+            className="w-full rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-time" />
+        </label>
         <input placeholder="Alamat acara" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
           className="rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-address" />
+        <input placeholder="Tulis link Google Mapsnya ya kak" value={form.maps_link} onChange={(e) => setForm({ ...form, maps_link: e.target.value })}
+          className="md:col-span-2 rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-venue-maps" />
       </div>
 
       <div className="space-y-3 rounded-2xl bg-white/50 p-4 border border-rose-100">

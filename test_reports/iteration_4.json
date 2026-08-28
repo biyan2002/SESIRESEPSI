@@ -1,0 +1,24 @@
+{
+  "summary": "Iteration 4 tests for public form label changes and admin manual booking modal all passed. Backend: 5/5 pytest (test_admin_manual_booking.py) covering maps_link persistence, empty payment_proof_path, admin-selected status persisting (confirmed/completed), weekday allowed for historic bookings, and server-side transport recalculation. UI: verified public form new labels/placeholders (Nama Pasangan Pria & Wanita, Tanggal berapa acaranya?, Acaranya jam berapa kak?, Tulis link Google Mapsnya ya kak). Admin dashboard admin-add-booking-button opens modal; validation blocks empty save; DP custom <Rp 50.000 rejected; Basic 19 km save flow shows Rp 45.000 transport & Rp 195.000 total; booking appears in list with 19 km, Rp 45.000 transport, and booking-maps-link-<id> as target=_blank pointing to entered URL. Mobile 390 px: no horizontal overflow on modal or public form; typing works.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_admin_manual_booking.py",
+    "/app/test_reports/pytest/admin_manual_booking.xml",
+    "/app/backend/tests/test_booking_distance.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminBookingModal trusts client-supplied `status` (confirmed/pending/completed) and Booking model has no whitelist enum; not a security risk but consider Literal[...] for status.",
+    "Backend still recalculates transport/total but trusts client `payment_amount` for lunas even though total is recalculated server-side; possible mismatch if UI ever forges. Non-blocking (iteration 3 comment).",
+    "Public BookingForm still requires bukti transfer; admin modal correctly makes it optional per requirement."
+  ],
+  "updated_files": ["/app/backend/tests/test_admin_manual_booking.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (UI flow desktop + mobile 390)"},
+  "test_credentials": "Owner admin: fikabisadimartyansyah@gmail.com / Biyan2026",
+  "seed_data_creation": "Created ~7 TEST_-prefixed bookings during backend + UI runs; all deleted via admin API cleanup after tests.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run: pytest backend/tests/test_admin_manual_booking.py -o addopts= -v (pytest.ini uses xdist -n auto but this single file runs fine). Public booking form lives at '/' (not '/booking'); scroll not required if using data-testid='booking-form'. AdminBookingModal opens via admin-add-booking-button on bookings tab of AdminDashboard.",
+  "rca of the issue": "No issues found. All new features (labels, maps_link input, admin manual booking modal with status field, weekday allowed on backend, mobile responsiveness) validated end-to-end."
+}

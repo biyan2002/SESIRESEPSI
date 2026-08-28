@@ -63,6 +63,14 @@ dan permukaan glassmorphism.
   menjadi ikon ringkas di ponsel; pilihan admin terbuka sebagai bottom sheet; navbar lebih rapat
   dan dapat digeser; serta card form booking memiliki padding dan tombol lokasi yang responsif.
 - Build frontend dan pemeriksaan screenshot hero, chat, serta form booking pada lebar 390 px berhasil.
+- Form booking publik menggunakan kolom Nama Pasangan Pria & Wanita, label tanggal dan jam yang
+  lebih natural, serta kolom link Google Maps venue.
+- Link lokasi venue yang diisi client tampil sebagai tautan Buka lokasi di Google Maps pada
+  dashboard admin.
+- Admin dapat membuat booking historis lewat modal booking manual lengkap: data pasangan, jadwal,
+  lokasi, jarak, paket, additional, pembayaran, status, catatan, dan bukti transfer opsional.
+- Pengujian independen booking admin lulus 5/5 backend dan seluruh alur UI desktop/mobile;
+  semua data test sudah dibersihkan.
 
 ## Backlog Prioritas
 

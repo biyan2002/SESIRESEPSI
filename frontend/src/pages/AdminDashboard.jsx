@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LogOut, Plus, Trash2, Edit, Save, Package as Pkg, Sparkles, Calendar, Star, Film, Users } from "lucide-react";
+import { LogOut, Plus, Trash2, Edit, Save, Package as Pkg, Sparkles, Calendar, Star, Film, Users, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { api, fileUrl } from "@/lib/api";
 import { rupiah } from "@/lib/utils";
+import AdminBookingModal from "@/components/AdminBookingModal";
 
 const TABS = [
   { id: "bookings", label: "Bookings", icon: Users },
@@ -75,7 +76,7 @@ const AdminDashboard = () => {
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         <motion.div key={tab} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          {tab === "bookings" && <BookingsTab bookings={bookings} reload={loadAll} />}
+          {tab === "bookings" && <BookingsTab bookings={bookings} packages={packages} additionals={additionals} reload={loadAll} />}
           {tab === "calendar" && <CalendarTab availability={availability} reload={loadAll} />}
           {tab === "packages" && <PackagesTab items={packages} reload={loadAll} />}
           {tab === "additionals" && <AdditionalsTab items={additionals} reload={loadAll} />}
@@ -87,14 +88,27 @@ const AdminDashboard = () => {
   );
 };
 
-const BookingsTab = ({ bookings, reload }) => {
+const BookingsTab = ({ bookings, packages, additionals, reload }) => {
+  const [showAddBooking, setShowAddBooking] = useState(false);
   const del = async (id) => {
     if (!window.confirm("Hapus booking ini?")) return;
     await api.delete(`/bookings/${id}`); toast.success("Deleted"); reload();
   };
   return (
     <div className="space-y-4">
-      <h2 className="font-serif-display text-3xl text-rose-950">Semua Booking ({bookings.length})</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-serif-display text-3xl text-rose-950">
+          Semua Booking ({bookings.length})
+        </h2>
+        <button
+          type="button"
+          onClick={() => setShowAddBooking(true)}
+          className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-600/20 transition-colors hover:bg-rose-700"
+          data-testid="admin-add-booking-button"
+        >
+          <Plus size={16} /> Tambah booking
+        </button>
+      </div>
       {bookings.length === 0 && <div className="glass p-8 rounded-2xl text-center text-rose-700">Belum ada booking</div>}
       {bookings.map((b) => (
         <div key={b.id} className="glass-heavy rounded-2xl p-6" data-testid={`booking-row-${b.id}`}>
@@ -103,7 +117,7 @@ const BookingsTab = ({ bookings, reload }) => {
               <div className="font-serif-display text-xl text-rose-950">{b.name} — {b.event_type}</div>
               <div className="text-sm text-rose-700">📅 {b.event_date} • {b.event_time} • 📱 {b.whatsapp}</div>
               <div className="text-sm text-rose-800 mt-1">📍 {b.address}</div>
-              {b.maps_link && <a href={b.maps_link} target="_blank" rel="noreferrer" className="text-xs text-rose-500 underline">Maps</a>}
+              {b.maps_link && <a href={b.maps_link} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-rose-600 underline" data-testid={`booking-maps-link-${b.id}`}><ExternalLink size={12} /> Buka lokasi di Google Maps</a>}
             </div>
             <button onClick={() => del(b.id)} className="text-rose-600 hover:text-red-700"><Trash2 size={18} /></button>
           </div>
@@ -127,6 +141,14 @@ const BookingsTab = ({ bookings, reload }) => {
           </div>
         </div>
       ))}
+      {showAddBooking && (
+        <AdminBookingModal
+          packages={packages}
+          additionals={additionals}
+          onClose={() => setShowAddBooking(false)}
+          onSaved={reload}
+        />
+      )}
     </div>
   );
 };
