@@ -6,7 +6,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import math
-import re
 import uuid
 import jwt
 import requests
@@ -27,10 +26,6 @@ EMERGENT_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
 APP_NAME = "sesi-resepsi"
-
-# Base location: Rumah Ramah Jati Luhur Bekasi (approx coords)
-BASE_LAT = -6.2949
-BASE_LNG = 106.9896
 
 storage_key = None
 
@@ -154,7 +149,7 @@ class Booking(BaseModel):
     event_time: str
     address: str
     maps_link: str = ""
-    distance_km: float = 0
+    distance_km: float = Field(ge=0, le=1000)
     notes: str = ""
     package_id: str
     package_name: str
@@ -339,6 +334,12 @@ async def delete_testimonial(t_id: str, username: str = Depends(verify_admin)):
 
 
 # ================= BOOKINGS =================
+def calculate_transport_cost(distance_km: float) -> int:
+    if distance_km <= 10:
+        return 0
+    return math.ceil(distance_km - 10) * 5000
+
+
 @api_router.get("/bookings")
 async def list_bookings(username: str = Depends(verify_admin)):
     docs = await db.bookings.find({}, {"_id": 0}).sort("event_date", 1).to_list(500)
@@ -347,8 +348,17 @@ async def list_bookings(username: str = Depends(verify_admin)):
 
 @api_router.post("/bookings")
 async def create_booking(b: Booking):
-    await db.bookings.insert_one(b.model_dump())
-    return b
+    booking_data = b.model_dump()
+    transport_cost = calculate_transport_cost(b.distance_km)
+    additionals_cost = sum(
+        int(item.get("subtotal", 0))
+        for item in b.additionals
+        if isinstance(item, dict)
+    )
+    booking_data["transport_cost"] = transport_cost
+    booking_data["total_price"] = b.package_price + additionals_cost + transport_cost
+    await db.bookings.insert_one(booking_data)
+    return Booking(**booking_data)
 
 
 @api_router.delete("/bookings/{b_id}")
@@ -378,69 +388,6 @@ async def set_availability(a: Availability, username: str = Depends(verify_admin
 async def delete_availability(date: str, username: str = Depends(verify_admin)):
     await db.availability.delete_one({"date": date})
     return {"ok": True}
-
-
-# ================= DISTANCE (Maps resolver) =================
-def haversine(lat1, lng1, lat2, lng2):
-    R = 6371
-    dlat = math.radians(lat2 - lat1)
-    dlng = math.radians(lng2 - lng1)
-    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlng/2)**2
-    c = 2 * math.asin(math.sqrt(a))
-    return R * c
-
-
-def resolve_maps_link(link: str) -> Optional[tuple]:
-    """Try to resolve a Google Maps short link to lat,lng coords."""
-    try:
-        # Follow redirect to expand shortlink
-        r = requests.get(link, allow_redirects=True, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
-        final_url = r.url
-        # Try patterns: /@lat,lng /  !3d..!4d..  /place/...
-        m = re.search(r"@(-?\d+\.\d+),(-?\d+\.\d+)", final_url)
-        if m:
-            return float(m.group(1)), float(m.group(2))
-        m = re.search(r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)", final_url)
-        if m:
-            return float(m.group(1)), float(m.group(2))
-        m = re.search(r"/(-?\d+\.\d+),(-?\d+\.\d+)", final_url)
-        if m:
-            return float(m.group(1)), float(m.group(2))
-        # Try in html body
-        m = re.search(r"(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})", r.text[:200000])
-        if m:
-            return float(m.group(1)), float(m.group(2))
-    except Exception as e:
-        logging.warning(f"Maps resolve failed: {e}")
-    return None
-
-
-class DistanceReq(BaseModel):
-    maps_link: str
-
-
-@api_router.post("/distance")
-async def calculate_distance(req: DistanceReq):
-    coords = resolve_maps_link(req.maps_link)
-    if not coords:
-        raise HTTPException(status_code=422, detail="Yahh sistem lagi error nih, kamu bisa input manual dulu ya, atau hubungi admin dulu")
-    lat, lng = coords
-    dist = haversine(BASE_LAT, BASE_LNG, lat, lng)
-    # Multiply by road factor
-    road_km = dist * 1.3
-    transport = 0 if road_km <= 10 else int((math.ceil(road_km) - 10) * 5000)
-    return {"distance_km": round(road_km, 1), "transport_cost": transport}
-
-
-class TransportReq(BaseModel):
-    distance_km: float
-
-
-@api_router.post("/transport")
-async def calculate_transport(req: TransportReq):
-    km = req.distance_km
-    transport = 0 if km <= 10 else int((math.ceil(km) - 10) * 5000)
-    return {"distance_km": km, "transport_cost": transport}
 
 
 # ================= UPLOAD =================

@@ -1,0 +1,25 @@
+{
+  "summary": "Verified iteration-2 changes: browser tab title 'SESI RESEPSI' + favicon.jpg, manual distance flow (no auto-calc, base maps button opens correct short link in new tab), correct transport pricing (10 km=Rp 0, 19 km=Rp 45.000) and total propagation, negative/empty distance validation, footer Instagram + TikTok buttons with correct URLs & target=_blank, and removal of legacy POST /api/distance endpoint. All 10 backend pytest cases and all 17 UI checks (desktop 1920 + mobile 390) passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_booking_distance.py",
+    "/app/test_reports/pytest/booking_distance.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BookingForm allows typing negative values in bf-manual-km (min=0 is not enforced when typing); routeDistance clamps to 0 so pricing is safe, but consider explicitly rejecting negatives on input change and stripping unwanted characters for cleaner UX.",
+    "server.py still imports 'requests' and defines BASE_LAT/BASE_LNG constants that are no longer used after auto-distance removal — dead code that can be cleaned up.",
+    "Booking POST has no server-side validation of transport_cost vs distance_km — a malicious client can send inconsistent totals. Recompute transport server-side using ceil(max(0, distance_km-10))*5000 before storing.",
+    "distance_km is Float in Pydantic model but frontend sends whatever the user typed; ensure numeric coercion & upper bound (e.g., 1000 km sanity cap) to guard against extreme values.",
+    "CORS is initialised AFTER app.include_router(api_router); FastAPI handles this fine but conventionally middleware should be added before include_router for clarity."
+  ],
+  "updated_files": ["/app/backend/tests/test_booking_distance.py"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% (17/17 UI checks)"},
+  "test_credentials": "Not required for tested flows. Admin (if needed): fikabisadimartyansyah@gmail.com / Biyan2026 (per review request).",
+  "seed_data_creation": "Created 5 TEST_-prefixed bookings via POST /api/bookings (distance 0/10/11/19/25 km) to verify transport formula end-to-end.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_booking_distance.py loads REACT_APP_BACKEND_URL from /app/frontend/.env when env var is absent. Run with: pytest backend/tests/test_booking_distance.py -o addopts= (backend pytest.ini has xdist -n auto which needs pytest-xdist plugin — disable via -o addopts= when running single file). Auto-distance POST /api/distance is fully removed; do not re-add without a manual override.",
+  "rca of the issue": "Previous bug (12385 km on mobile) was caused by server-side POST /api/distance that regex-parsed a Google Maps short link then applied haversine — parsing failed on some devices/redirects and produced (0,0) coords → huge haversine distance. Fix: endpoint deleted; BookingForm now uses a manual number input (bf-manual-km) with client-side formula ceil(max(0, km-10))*5000. Verified 19 km → Rp 45.000, 10 km → Rp 0 across desktop and mobile 390px."
+}

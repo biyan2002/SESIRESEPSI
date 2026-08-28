@@ -51,6 +51,14 @@ dan permukaan glassmorphism.
 - Perbaikan login admin: email owner `fikabisadimartyansyah@gmail.com` kini menjadi alias
   login untuk akun Biyan dan input menerima username atau email.
 - Pengujian independen auth (13 backend test dan alur Playwright desktop/mobile) lulus 100%.
+- Browser menggunakan favicon logo di `frontend/public/favicon.jpg` dan judul tab `SESI RESEPSI`.
+- Perhitungan jarak otomatis dihapus agar tidak menghasilkan anomali koordinat pada perangkat mobile.
+- Form booking menautkan base SESI RESEPSI di Google Maps dan meminta calon client memasukkan
+  jarak rute secara manual. Radius hingga 10 km gratis; sisanya Rp5.000 per km.
+- Validasi frontend menolak jarak negatif, sedangkan backend membatasi jarak 0–1000 km dan
+  menghitung ulang biaya transport serta total untuk mencegah manipulasi nilai.
+- Tombol Instagram dan TikTok SESI RESEPSI tersedia di footer.
+- Pengujian independen jarak manual, favicon, dan sosial: 16/16 backend serta 22/22 UI lulus.
 
 ## Backlog Prioritas
 
@@ -64,6 +72,7 @@ dan permukaan glassmorphism.
 
 - Rapikan peringatan dependency `useEffect` pada dashboard admin.
 - Poles animasi entrance dan state aktif lain agar konsisten pada seluruh halaman.
+- Tambahkan validasi server untuk nominal pembayaran lunas agar tidak dapat dimodifikasi klien.
 
 ### P2
 

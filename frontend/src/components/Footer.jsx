@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Instagram, MessageCircle, Lock } from "lucide-react";
+import { Instagram, Music2, Lock } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -11,13 +11,24 @@ const Footer = () => {
         <p className="font-italiana text-xl text-rose-800">
           Every love story deserves a beautiful frame.
         </p>
-        <div className="mt-6 flex justify-center gap-4">
-          <a href="https://instagram.com" target="_blank" rel="noreferrer"
-            className="rounded-full glass p-3 text-rose-700 hover:text-rose-900 transition-colors">
-            <Instagram size={18} />
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <a
+            href="https://www.instagram.com/sesiresepsi?igsi=ZnZuMWVkNzNmdWt1&utm_source=qr"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-full glass px-4 py-3 text-sm font-semibold text-rose-700 transition-colors hover:bg-white/75 hover:text-rose-900"
+            data-testid="footer-instagram-link"
+          >
+            <Instagram size={18} aria-hidden="true" /> Instagram
           </a>
-          <a href="#" className="rounded-full glass p-3 text-rose-700 hover:text-rose-900 transition-colors">
-            <MessageCircle size={18} />
+          <a
+            href="https://www.tiktok.com/@sesiresepsi?_r=1&_t=ZS-99FLXexXe0C"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-full glass px-4 py-3 text-sm font-semibold text-rose-700 transition-colors hover:bg-white/75 hover:text-rose-900"
+            data-testid="footer-tiktok-link"
+          >
+            <Music2 size={18} aria-hidden="true" /> TikTok
           </a>
         </div>
         <div className="mt-10 text-xs text-rose-700/70">

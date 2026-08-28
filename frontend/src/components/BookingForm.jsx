@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Copy, Upload, MapPin, Loader2 } from "lucide-react";
+import { Copy, Upload, MapPin, ExternalLink } from "lucide-react";
 import { api } from "@/lib/api";
 import { rupiah, isWeekendOrHoliday } from "@/lib/utils";
 
@@ -13,16 +13,13 @@ const BANKS = [
 const BookingForm = ({ selectedPackage }) => {
   const [pkgs, setPkgs] = useState([]);
   const [adds, setAdds] = useState([]);
-  const [selectedAdds, setSelectedAdds] = useState({}); // id -> qty
+  const [selectedAdds, setSelectedAdds] = useState({});
   const [pkgId, setPkgId] = useState("");
   const [form, setForm] = useState({
     name: "", whatsapp: "", event_type: "", event_date: "", event_time: "",
-    address: "", maps_link: "", notes: "",
+    address: "", notes: "",
   });
-  const [distance, setDistance] = useState(0);
-  const [distanceErr, setDistanceErr] = useState("");
   const [manualDistance, setManualDistance] = useState("");
-  const [resolving, setResolving] = useState(false);
   const [paymentType, setPaymentType] = useState("dp");
   const [dpChoice, setDpChoice] = useState("50000");
   const [customDp, setCustomDp] = useState("");
@@ -41,11 +38,23 @@ const BookingForm = ({ selectedPackage }) => {
 
   const pkg = pkgs.find((p) => p.id === pkgId);
 
+  const routeDistance = useMemo(() => {
+    const enteredDistance = Number(manualDistance);
+
+    if (!Number.isFinite(enteredDistance) || enteredDistance < 0) {
+      return 0;
+    }
+
+    return enteredDistance;
+  }, [manualDistance]);
+
   const transportCost = useMemo(() => {
-    const km = distance || parseFloat(manualDistance) || 0;
-    if (km <= 10) return 0;
-    return Math.ceil(km - 10) * 5000;
-  }, [distance, manualDistance]);
+    if (routeDistance <= 10) {
+      return 0;
+    }
+
+    return Math.ceil(routeDistance - 10) * 5000;
+  }, [routeDistance]);
 
   const additionalCost = useMemo(() => {
     let sum = 0;
@@ -61,19 +70,10 @@ const BookingForm = ({ selectedPackage }) => {
   const dpAmount = paymentType === "lunas" ? total :
     (dpChoice === "custom" ? parseInt(customDp || 0) : parseInt(dpChoice));
 
-  const resolveMaps = async () => {
-    if (!form.maps_link) return;
-    setResolving(true);
-    setDistanceErr("");
-    try {
-      const r = await api.post("/distance", { maps_link: form.maps_link });
-      setDistance(r.data.distance_km);
-      toast.success(`Jarak: ${r.data.distance_km} km — Transport ${rupiah(r.data.transport_cost)}`);
-    } catch (e) {
-      setDistanceErr(e.response?.data?.detail || "Yah sistem error, isi manual ya kak");
-      toast.error("Yahh sistem lagi error nih, kamu bisa input manual dulu ya, atau hubungi admin dulu");
+  const updateManualDistance = (value) => {
+    if (value === "" || (Number.isFinite(Number(value)) && Number(value) >= 0)) {
+      setManualDistance(value);
     }
-    setResolving(false);
   };
 
   const copyText = (t) => {
@@ -88,6 +88,8 @@ const BookingForm = ({ selectedPackage }) => {
       return toast.error("Kita cuma buka weekend & libur nasional ya kak");
     if (paymentType === "dp" && dpAmount < 50000)
       return toast.error("Minimal DP Rp 50.000 ya");
+    if (manualDistance === "" || Number(manualDistance) < 0)
+      return toast.error("Isi jarak rute dari Google Maps dulu ya kak");
     if (!proofFile)
       return toast.error("Upload bukti transfer dulu ya~");
 
@@ -108,7 +110,7 @@ const BookingForm = ({ selectedPackage }) => {
 
       await api.post("/bookings", {
         ...form,
-        distance_km: distance || parseFloat(manualDistance) || 0,
+        distance_km: routeDistance,
         package_id: pkgId,
         package_name: pkg.name,
         package_price: pkg.price,
@@ -166,44 +168,45 @@ const BookingForm = ({ selectedPackage }) => {
           className="rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-address" />
       </div>
 
-      {/* Maps + distance */}
       <div className="space-y-3 rounded-2xl bg-white/50 p-4 border border-rose-100">
         <div className="flex items-center gap-2 text-rose-700 text-sm font-semibold">
-          <MapPin size={16} /> Lokasi acara (Google Maps)
+          <MapPin size={16} /> Jarak venue dari base SESI RESEPSI
         </div>
-        <div className="flex flex-col md:flex-row gap-2">
-          <input
-            placeholder="Paste link Google Maps venue kamu"
-            value={form.maps_link}
-            onChange={(e) => setForm({ ...form, maps_link: e.target.value })}
-            className="flex-1 rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500"
-            data-testid="bf-maps"
-          />
-          <button onClick={resolveMaps} disabled={resolving || !form.maps_link}
-            className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-5 py-3 flex items-center justify-center gap-2 disabled:opacity-60"
-            data-testid="bf-maps-calc">
-            {resolving ? <Loader2 className="animate-spin" size={16} /> : <MapPin size={16} />} Hitung
-          </button>
-        </div>
-        {distance > 0 && (
-          <div className="text-sm text-emerald-700 bg-emerald-50 rounded-xl px-3 py-2">
-            ✅ Jarak: <b>{distance} km</b> • Transport: <b>{rupiah(transportCost)}</b>
+        <p className="text-sm leading-relaxed text-rose-800/80" data-testid="bf-distance-instruction">
+          Buka Google Maps, masukkan venue sebagai tujuan dari alamat base kami, lalu tulis
+          jarak rutenya di bawah ini ya kak.
+        </p>
+        <a
+          href="https://maps.app.goo.gl/Dodc41PSqhoQdTVa6"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-rose-600/20 transition-colors hover:bg-rose-700"
+          data-testid="bf-open-distance-map"
+        >
+          <MapPin size={16} />
+          Buka lokasi base di Google Maps
+          <ExternalLink size={14} />
+        </a>
+        <p className="text-xs leading-relaxed text-rose-700/80" data-testid="bf-base-address">
+          Base: Jl. Tanjakan Sa'ar No.66, Jatiluhur, Jatiasih, Kota Bekasi, Jawa Barat 17425.
+        </p>
+        <input
+          type="number"
+          min="0"
+          step="0.1"
+          placeholder="Tulis jarak rute dari Google Maps (km)"
+          value={manualDistance}
+          onChange={(e) => updateManualDistance(e.target.value)}
+          className="w-full rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500"
+          data-testid="bf-manual-km"
+        />
+        {manualDistance !== "" && Number(manualDistance) >= 0 && (
+          <div
+            className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+            data-testid="bf-distance-summary"
+          >
+            ✅ Jarak rute: <b>{routeDistance} km</b> • Transport: <b>{rupiah(transportCost)}</b>
           </div>
-        )}
-        {distanceErr && (
-          <>
-            <div className="text-sm text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
-              {distanceErr}
-            </div>
-            <input
-              type="number"
-              placeholder="Isi jarak manual (km) dari Bekasi"
-              value={manualDistance}
-              onChange={(e) => setManualDistance(e.target.value)}
-              className="w-full rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500"
-              data-testid="bf-manual-km"
-            />
-          </>
         )}
       </div>
 
