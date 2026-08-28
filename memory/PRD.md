@@ -59,6 +59,10 @@ dan permukaan glassmorphism.
   menghitung ulang biaya transport serta total untuk mencegah manipulasi nilai.
 - Tombol Instagram dan TikTok SESI RESEPSI tersedia di footer.
 - Pengujian independen jarak manual, favicon, dan sosial: 16/16 backend serta 22/22 UI lulus.
+- Perapian mobile: CTA hero kini selebar layar dengan ruang aman dari tombol chat; tombol chat
+  menjadi ikon ringkas di ponsel; pilihan admin terbuka sebagai bottom sheet; navbar lebih rapat
+  dan dapat digeser; serta card form booking memiliki padding dan tombol lokasi yang responsif.
+- Build frontend dan pemeriksaan screenshot hero, chat, serta form booking pada lebar 390 px berhasil.
 
 ## Backlog Prioritas
 

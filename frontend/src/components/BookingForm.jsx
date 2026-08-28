@@ -150,8 +150,13 @@ const BookingForm = ({ selectedPackage }) => {
   }
 
   return (
-    <div className="glass-heavy rounded-3xl p-6 md:p-10 space-y-6" data-testid="booking-form">
-      <h3 className="font-serif-display text-3xl text-rose-950">Form Booking 💐</h3>
+    <div
+      className="space-y-5 rounded-[22px] p-4 glass-heavy sm:space-y-6 sm:p-6 md:p-10"
+      data-testid="booking-form"
+    >
+      <h3 className="font-serif-display text-3xl text-rose-950">
+        Form Booking 💐
+      </h3>
 
       <div className="grid md:grid-cols-2 gap-4">
         <input placeholder="Nama lengkap" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -172,7 +177,10 @@ const BookingForm = ({ selectedPackage }) => {
         <div className="flex items-center gap-2 text-rose-700 text-sm font-semibold">
           <MapPin size={16} /> Jarak venue dari base SESI RESEPSI
         </div>
-        <p className="text-sm leading-relaxed text-rose-800/80" data-testid="bf-distance-instruction">
+        <p
+          className="text-sm leading-relaxed text-rose-800/80"
+          data-testid="bf-distance-instruction"
+        >
           Buka Google Maps, masukkan venue sebagai tujuan dari alamat base kami, lalu tulis
           jarak rutenya di bawah ini ya kak.
         </p>
@@ -180,14 +188,17 @@ const BookingForm = ({ selectedPackage }) => {
           href="https://maps.app.goo.gl/Dodc41PSqhoQdTVa6"
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-rose-600/20 transition-colors hover:bg-rose-700"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-3 text-center text-sm font-semibold text-white shadow-md shadow-rose-600/20 transition-colors hover:bg-rose-700 sm:w-auto"
           data-testid="bf-open-distance-map"
         >
           <MapPin size={16} />
           Buka lokasi base di Google Maps
           <ExternalLink size={14} />
         </a>
-        <p className="text-xs leading-relaxed text-rose-700/80" data-testid="bf-base-address">
+        <p
+          className="text-xs leading-relaxed text-rose-700/80"
+          data-testid="bf-base-address"
+        >
           Base: Jl. Tanjakan Sa'ar No.66, Jatiluhur, Jatiasih, Kota Bekasi, Jawa Barat 17425.
         </p>
         <input

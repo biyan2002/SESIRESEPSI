@@ -24,7 +24,7 @@ const Hero = () => {
 
       <AnimatedFlowers dense />
 
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-[100svh] px-6 text-center">
+      <div className="relative z-10 flex min-h-[100svh] flex-col items-center justify-center px-6 pb-32 pt-24 text-center sm:pb-12 sm:pt-20">
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -52,7 +52,7 @@ const Hero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.0, duration: 0.8 }}
-          className="font-italiana text-2xl md:text-4xl text-rose-900 mt-6 tracking-wide"
+          className="mt-6 max-w-lg font-italiana text-2xl tracking-wide text-rose-900 md:text-4xl"
           data-testid="hero-tagline"
         >
           Wedding Content Creator Jakarta-Bekasi
@@ -62,7 +62,7 @@ const Hero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.3, duration: 0.8 }}
-          className="mt-4 text-base md:text-lg text-rose-800/80 max-w-xl font-body"
+          className="mt-4 max-w-xl font-body text-base text-rose-800/80 md:text-lg"
         >
           Momen romantis kamu, kita abadikan estetik banget. Cinematic, aesthetic,
           & auto bikin baper timeline sosmed 🌸
@@ -72,19 +72,19 @@ const Hero = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.6, duration: 0.8 }}
-          className="mt-10 flex flex-col sm:flex-row gap-4"
+          className="mt-8 flex w-full max-w-xs flex-col gap-3 sm:mt-10 sm:max-w-none sm:flex-row sm:gap-4"
         >
           <a
             href="#packages"
             data-testid="hero-cta-book"
-            className="rounded-full bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 font-medium shadow-xl shadow-rose-600/25 transition-colors flex items-center gap-2"
+            className="flex items-center justify-center gap-2 rounded-full bg-rose-600 px-8 py-4 font-medium text-white shadow-xl shadow-rose-600/25 transition-colors hover:bg-rose-700"
           >
             <Heart size={18} /> Booking Sekarang
           </a>
           <Link
             to="/portfolio"
             data-testid="hero-cta-portfolio"
-            className="rounded-full glass-heavy hover:bg-white px-8 py-4 font-medium text-rose-800 border border-rose-200 transition-colors"
+            className="rounded-full border border-rose-200 px-8 py-4 font-medium text-rose-800 glass-heavy transition-colors hover:bg-white"
           >
             Lihat Portfolio →
           </Link>

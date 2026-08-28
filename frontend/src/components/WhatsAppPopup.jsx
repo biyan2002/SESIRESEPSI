@@ -15,16 +15,17 @@ const WhatsAppPopup = ({ waBiyan = "085185130765", waAsty = "085862937103" }) =>
         onClick={() => setOpen(true)}
         whileHover={{ scale: 1.06, y: -3 }}
         whileTap={{ scale: 0.95 }}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-rose-600 text-white px-6 py-4 shadow-2xl shadow-rose-600/30 font-medium"
+        className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-rose-600 p-0 font-medium text-white shadow-2xl shadow-rose-600/30 sm:bottom-6 sm:right-6 sm:h-auto sm:w-auto sm:gap-2 sm:px-6 sm:py-4"
+        aria-label="Chat dengan admin"
       >
         <MessageCircle size={22} />
-        Chat Admin
+        <span className="hidden sm:inline">Chat Admin</span>
       </motion.button>
 
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-rose-950/30 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-rose-950/30 p-3 backdrop-blur-sm sm:items-center sm:p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -36,7 +37,7 @@ const WhatsAppPopup = ({ waBiyan = "085185130765", waAsty = "085862937103" }) =>
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.85, y: 40, opacity: 0 }}
               transition={{ type: "spring", damping: 22 }}
-              className="glass-heavy rounded-3xl p-8 max-w-md w-full relative"
+              className="relative w-full max-w-md rounded-t-3xl p-6 glass-heavy sm:rounded-3xl sm:p-8"
               data-testid="wa-popup"
             >
               <button

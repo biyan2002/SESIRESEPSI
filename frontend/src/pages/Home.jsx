@@ -44,7 +44,7 @@ const Home = () => {
       <section
         ref={bookingRef}
         id="booking-section"
-        className="scroll-section relative py-24 px-6"
+        className="scroll-section relative px-4 py-16 sm:px-6 sm:py-24"
         data-testid="booking-section"
       >
         <div className="max-w-3xl mx-auto">

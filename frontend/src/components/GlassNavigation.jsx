@@ -49,14 +49,14 @@ const GlassNavigation = () => {
       initial={{ opacity: 0, y: -28 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.15, duration: 0.7, ease: "easeOut" }}
-      className="fixed top-3 left-3 right-3 z-50 sm:top-5 sm:left-6 sm:right-6"
+      className="fixed top-2 left-2 right-2 z-50 sm:top-5 sm:left-6 sm:right-6"
       data-testid="glass-navigation"
     >
-      <div className="glass-navigation mx-auto flex max-w-7xl items-center gap-2 p-2 sm:gap-3">
+      <div className="glass-navigation mx-auto flex max-w-7xl items-center gap-1 p-1.5 sm:gap-3 sm:p-2">
         <button
           type="button"
           onClick={() => moveToSection("beranda")}
-          className="nav-logo-button flex shrink-0 items-center gap-2 px-2.5 py-2"
+          className="nav-logo-button flex shrink-0 items-center gap-2 px-2 py-2 sm:px-2.5"
           data-testid="nav-logo-home-button"
           aria-label="Kembali ke beranda"
         >
@@ -81,7 +81,7 @@ const GlassNavigation = () => {
                 key={section.id}
                 type="button"
                 onClick={() => moveToSection(section.id)}
-                className="nav-section-button relative shrink-0 px-3 py-2 text-xs font-semibold"
+                className="nav-section-button relative shrink-0 px-2.5 py-2 text-xs font-semibold sm:px-3"
                 data-testid={`nav-${section.id}`}
                 aria-current={isActive ? "page" : undefined}
               >
@@ -102,7 +102,7 @@ const GlassNavigation = () => {
 
         <Link
           to="/portfolio"
-          className="nav-portfolio-link flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs font-semibold"
+          className="nav-portfolio-link flex shrink-0 items-center gap-1.5 px-2.5 py-2 text-xs font-semibold sm:px-3"
           data-testid="nav-portfolio-link"
         >
           <Images size={15} aria-hidden="true" />
@@ -112,7 +112,7 @@ const GlassNavigation = () => {
         <button
           type="button"
           onClick={() => moveToSection("booking-section")}
-          className="nav-booking-button flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs font-semibold"
+          className="nav-booking-button flex shrink-0 items-center gap-1.5 px-2.5 py-2 text-xs font-semibold sm:px-3"
           data-testid="nav-booking-button"
         >
           <Heart size={14} fill="currentColor" aria-hidden="true" />
