@@ -6,12 +6,14 @@ import { toast } from "sonner";
 import { api, fileUrl } from "@/lib/api";
 import { rupiah } from "@/lib/utils";
 import AdminBookingModal from "@/components/AdminBookingModal";
+import TeamManager from "@/components/TeamManager";
 
 const TABS = [
   { id: "bookings", label: "Bookings", icon: Users },
   { id: "calendar", label: "Kalender", icon: Calendar },
   { id: "packages", label: "Paket", icon: Pkg },
   { id: "additionals", label: "Additional", icon: Sparkles },
+  { id: "team", label: "Tim", icon: Users },
   { id: "portfolio", label: "Portfolio", icon: Film },
   { id: "testimonials", label: "Testimoni", icon: Star },
 ];
@@ -26,6 +28,7 @@ const AdminDashboard = () => {
   const [portfolio, setPortfolio] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
   const [availability, setAvailability] = useState({});
+  const [teamMembers, setTeamMembers] = useState([]);
 
   useEffect(() => {
     if (!localStorage.getItem("sr_token")) return nav("/admin/login");
@@ -35,14 +38,16 @@ const AdminDashboard = () => {
 
   const loadAll = async () => {
     try {
-      const [b, p, a, po, t, av] = await Promise.all([
+      const [b, p, a, po, t, av, team] = await Promise.all([
         api.get("/bookings"), api.get("/packages"), api.get("/additionals"),
         api.get("/portfolio"), api.get("/testimonials/all"), api.get("/availability"),
+        api.get("/team"),
       ]);
       setBookings(b.data); setPackages(p.data); setAdditionals(a.data);
       setPortfolio(po.data); setTestimonials(t.data);
-      const map = {}; av.data.forEach((x) => (map[x.date] = x.status));
+      const map = {}; av.data.forEach((x) => (map[x.date] = x));
       setAvailability(map);
+      setTeamMembers(team.data);
     } catch (e) {
       if (e.response?.status === 401) { localStorage.clear(); nav("/admin/login"); }
     }
@@ -77,9 +82,10 @@ const AdminDashboard = () => {
       <main className="max-w-7xl mx-auto px-6 py-8">
         <motion.div key={tab} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {tab === "bookings" && <BookingsTab bookings={bookings} packages={packages} additionals={additionals} reload={loadAll} />}
-          {tab === "calendar" && <CalendarTab availability={availability} reload={loadAll} />}
+          {tab === "calendar" && <CalendarTab availability={availability} teamCount={teamMembers.length} reload={loadAll} />}
           {tab === "packages" && <PackagesTab items={packages} reload={loadAll} />}
           {tab === "additionals" && <AdditionalsTab items={additionals} reload={loadAll} />}
+          {tab === "team" && <TeamManager members={teamMembers} reload={loadAll} />}
           {tab === "portfolio" && <PortfolioTab items={portfolio} reload={loadAll} />}
           {tab === "testimonials" && <TestimonialsTab items={testimonials} reload={loadAll} />}
         </motion.div>
@@ -153,7 +159,7 @@ const BookingsTab = ({ bookings, packages, additionals, reload }) => {
   );
 };
 
-const CalendarTab = ({ availability, reload }) => {
+const CalendarTab = ({ availability, teamCount, reload }) => {
   const [month, setMonth] = useState(new Date());
   const y = month.getFullYear(); const m = month.getMonth();
   const firstDay = new Date(y, m, 1); const lastDay = new Date(y, m + 1, 0);
@@ -162,16 +168,22 @@ const CalendarTab = ({ availability, reload }) => {
   for (let i = 0; i < startPad; i++) days.push(null);
   for (let d = 1; d <= lastDay.getDate(); d++) days.push(new Date(y, m, d));
 
-  const setStatus = async (date, status) => {
-    await api.post("/availability", { date, status }); reload();
+  const setRemainingSlots = async (date, value) => {
+    const payload = value === "closed"
+      ? { date, status: "closed" }
+      : { date, remaining_slots: Number(value) };
+    await api.post("/availability", payload);
+    reload();
   };
-  const clear = async (date) => { await api.delete(`/availability/${date}`); reload(); };
 
   const COLORS = { available: "bg-emerald-500", limited: "bg-amber-500", full: "bg-rose-600", closed: "bg-slate-400" };
   return (
     <div>
       <h2 className="font-serif-display text-3xl text-rose-950 mb-4">Kelola Tanggal</h2>
       <div className="glass-heavy rounded-2xl p-6">
+        <p className="mb-4 text-sm text-rose-800" data-testid="calendar-team-capacity">
+          Kapasitas maksimal per hari: <b>{teamCount} slot</b>, sesuai jumlah personel tim.
+        </p>
         <div className="flex justify-between mb-4">
           <button onClick={() => setMonth(new Date(y, m - 1, 1))} className="text-rose-700">← Prev</button>
           <h3 className="font-serif-display text-xl">{month.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}</h3>
@@ -184,17 +196,28 @@ const CalendarTab = ({ availability, reload }) => {
           {days.map((d, i) => {
             if (!d) return <div key={i} />;
             const iso = d.toISOString().slice(0,10);
-            const status = availability[iso];
+            const record = availability[iso];
+            const status = record?.status;
+            const selectedSlots = status === "closed"
+              ? "closed"
+              : String(record?.remaining_slots ?? teamCount);
             return (
               <div key={i} className="rounded-xl border border-rose-200 p-2 text-center text-xs bg-white/60">
                 <div className="font-bold text-rose-950">{d.getDate()}</div>
                 <div className={`h-1 rounded-full my-1 ${status ? COLORS[status] : "bg-slate-200"}`} />
-                <div className="grid grid-cols-2 gap-1 mt-1">
-                  <button onClick={() => setStatus(iso, "available")} className="bg-emerald-100 hover:bg-emerald-200 rounded text-[10px] py-0.5" data-testid={`av-${iso}`}>Kosong</button>
-                  <button onClick={() => setStatus(iso, "limited")} className="bg-amber-100 hover:bg-amber-200 rounded text-[10px] py-0.5">1 slot</button>
-                  <button onClick={() => setStatus(iso, "full")} className="bg-rose-200 hover:bg-rose-300 rounded text-[10px] py-0.5">Full</button>
-                  <button onClick={() => clear(iso)} className="bg-slate-100 hover:bg-slate-200 rounded text-[10px] py-0.5">Reset</button>
-                </div>
+                <select
+                  value={selectedSlots}
+                  onChange={(event) => setRemainingSlots(iso, event.target.value)}
+                  className="mt-1 w-full rounded bg-white px-1 py-1 text-[10px] text-rose-800"
+                  data-testid={`calendar-slots-${iso}`}
+                >
+                  <option value="closed">Tutup</option>
+                  {Array.from({ length: teamCount + 1 }, (_, slots) => (
+                    <option key={slots} value={slots}>
+                      {slots === 0 ? "Penuh" : `${slots} slot`}
+                    </option>
+                  ))}
+                </select>
               </div>
             );
           })}
@@ -299,23 +322,35 @@ const AdditionalsTab = ({ items, reload }) => {
 
 const PortfolioTab = ({ items, reload }) => {
   const [edit, setEdit] = useState(null);
-  const [file, setFile] = useState(null);
+  const [videoFile, setVideoFile] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
   const save = async () => {
     let payload = { ...edit };
-    if (payload.media_type === "upload" && file) {
-      const fd = new FormData(); fd.append("file", file);
+    if (payload.media_type === "photo" && imageFiles.length === 0) {
+      toast.error("Pilih minimal satu foto portfolio.");
+      return;
+    }
+    if (payload.media_type === "upload" && videoFile) {
+      const fd = new FormData(); fd.append("file", videoFile);
       const up = await api.post("/upload?folder=portfolio", fd, { headers: {"Content-Type": "multipart/form-data"}});
       payload.file_path = up.data.path;
     }
+    if (imageFiles.length > 0) {
+      const uploads = await Promise.all(imageFiles.map(async (imageFile) => {
+        const fd = new FormData(); fd.append("file", imageFile);
+        return api.post("/upload?folder=portfolio", fd, { headers: {"Content-Type": "multipart/form-data"}});
+      }));
+      payload.image_paths = [...(payload.image_paths || []), ...uploads.map((up) => up.data.path)];
+    }
     if (payload.id) await api.put(`/portfolio/${payload.id}`, payload);
     else await api.post("/portfolio", payload);
-    toast.success("Tersimpan"); setEdit(null); setFile(null); reload();
+    toast.success("Tersimpan"); setEdit(null); setVideoFile(null); setImageFiles([]); reload();
   };
   const del = async (id) => { if (window.confirm("Hapus?")) { await api.delete(`/portfolio/${id}`); reload(); }};
   return (
     <div className="space-y-4">
       <div className="flex justify-between"><h2 className="font-serif-display text-3xl">Kelola Portfolio</h2>
-        <button onClick={() => setEdit({ title:"", couple_name:"", event_date:"", description:"", media_type:"youtube", youtube_url:"", file_path:"" })}
+        <button onClick={() => setEdit({ title:"", couple_name:"", event_date:"", description:"", media_type:"youtube", youtube_url:"", file_path:"", image_paths:[] })}
           className="rounded-full bg-rose-600 text-white px-4 py-2" data-testid="add-portfolio"><Plus size={16} className="inline"/> Tambah</button>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
@@ -342,11 +377,14 @@ const PortfolioTab = ({ items, reload }) => {
             <div className="flex gap-2 mb-2">
               <button onClick={()=>setEdit({...edit, media_type:"youtube"})} className={`flex-1 rounded-xl py-2 ${edit.media_type==="youtube"?"bg-rose-600 text-white":"bg-white/70"}`}>YouTube</button>
               <button onClick={()=>setEdit({...edit, media_type:"upload"})} className={`flex-1 rounded-xl py-2 ${edit.media_type==="upload"?"bg-rose-600 text-white":"bg-white/70"}`}>Upload</button>
+              <button onClick={()=>setEdit({...edit, media_type:"photo"})} className={`flex-1 rounded-xl py-2 ${edit.media_type==="photo"?"bg-rose-600 text-white":"bg-white/70"}`} data-testid="portfolio-media-photo-button">Foto</button>
             </div>
             {edit.media_type === "youtube" ? (
               <input placeholder="YouTube URL" value={edit.youtube_url} onChange={(e)=>setEdit({...edit, youtube_url: e.target.value})} className="w-full rounded-xl px-3 py-2 border border-rose-200 mb-3"/>
+            ) : edit.media_type === "upload" ? (
+              <input type="file" accept="video/*" onChange={(e)=>setVideoFile(e.target.files?.[0])} className="w-full mb-3"/>
             ) : (
-              <input type="file" accept="video/*" onChange={(e)=>setFile(e.target.files?.[0])} className="w-full mb-3"/>
+              <input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={(e)=>setImageFiles(Array.from(e.target.files || []))} className="w-full mb-3" data-testid="portfolio-photo-input"/>
             )}
             <div className="flex gap-2">
               <button onClick={save} className="flex-1 rounded-full bg-rose-600 text-white py-2">Simpan</button>

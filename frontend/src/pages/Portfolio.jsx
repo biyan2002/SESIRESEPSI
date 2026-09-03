@@ -61,7 +61,14 @@ const Portfolio = () => {
               data-testid={`portfolio-item-${v.id}`}
             >
               <div className="aspect-video relative bg-rose-100 overflow-hidden">
-                {v.media_type === "youtube" ? (
+                {v.media_type === "photo" && v.image_paths?.[0] ? (
+                  <img
+                    src={fileUrl(v.image_paths[0])}
+                    alt={v.title}
+                    className="w-full h-full object-cover"
+                    data-testid={`portfolio-photo-${v.id}`}
+                  />
+                ) : v.media_type === "youtube" ? (
                   <img src={`https://img.youtube.com/vi/${(v.youtube_url.match(/(?:youtu\.be\/|v=|shorts\/)([\w-]{11})/) || [])[1]}/hqdefault.jpg`}
                     alt={v.title} className="w-full h-full object-cover" />
                 ) : v.file_path ? (
@@ -70,7 +77,9 @@ const Portfolio = () => {
                   <div className="w-full h-full flex items-center justify-center text-rose-400"><Heart /></div>
                 )}
                 <div className="absolute inset-0 bg-rose-950/0 group-hover:bg-rose-950/30 transition-colors flex items-center justify-center">
-                  <Play className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={48} fill="white" />
+                  {v.media_type !== "photo" && (
+                    <Play className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={48} fill="white" />
+                  )}
                 </div>
               </div>
               <div className="p-5">
@@ -90,12 +99,32 @@ const Portfolio = () => {
           onClick={() => setActive(null)}>
           <div className="max-w-5xl w-full glass-heavy rounded-3xl p-4" onClick={(e) => e.stopPropagation()}>
             <div className="aspect-video rounded-2xl overflow-hidden bg-black">
-              {active.media_type === "youtube" ? (
+              {active.media_type === "photo" && active.image_paths?.length > 0 ? (
+                <img
+                  src={fileUrl(active.image_paths[0])}
+                  alt={active.title}
+                  className="w-full h-full object-contain"
+                  data-testid="portfolio-active-photo"
+                />
+              ) : active.media_type === "youtube" ? (
                 <iframe src={getYouTubeEmbed(active.youtube_url)} className="w-full h-full" allowFullScreen />
               ) : (
                 <video src={fileUrl(active.file_path)} controls autoPlay className="w-full h-full" />
               )}
             </div>
+            {active.media_type === "photo" && active.image_paths?.length > 1 && (
+              <div className="mt-3 grid grid-cols-3 gap-2" data-testid="portfolio-photo-gallery">
+                {active.image_paths.slice(1).map((path, index) => (
+                  <img
+                    key={path}
+                    src={fileUrl(path)}
+                    alt={`${active.title} ${index + 2}`}
+                    className="aspect-square rounded-xl object-cover"
+                    data-testid={`portfolio-gallery-photo-${index + 2}`}
+                  />
+                ))}
+              </div>
+            )}
             <div className="p-4">
               <h3 className="font-serif-display text-2xl text-rose-950">{active.title}</h3>
               <div className="text-rose-600">{active.couple_name} • {active.event_date}</div>

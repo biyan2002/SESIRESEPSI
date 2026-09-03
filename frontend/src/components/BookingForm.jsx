@@ -13,6 +13,7 @@ const BANKS = [
 const BookingForm = ({ selectedPackage }) => {
   const [pkgs, setPkgs] = useState([]);
   const [adds, setAdds] = useState([]);
+  const [availability, setAvailability] = useState({});
   const [selectedAdds, setSelectedAdds] = useState({});
   const [pkgId, setPkgId] = useState("");
   const [form, setForm] = useState({
@@ -30,6 +31,15 @@ const BookingForm = ({ selectedPackage }) => {
   useEffect(() => {
     api.get("/packages").then((r) => setPkgs(r.data));
     api.get("/additionals").then((r) => setAdds(r.data));
+    api.get("/availability").then((response) => {
+      const availabilityByDate = {};
+
+      response.data.forEach((item) => {
+        availabilityByDate[item.date] = item;
+      });
+
+      setAvailability(availabilityByDate);
+    });
   }, []);
 
   useEffect(() => {
@@ -37,6 +47,11 @@ const BookingForm = ({ selectedPackage }) => {
   }, [selectedPackage]);
 
   const pkg = pkgs.find((p) => p.id === pkgId);
+  const transportRadius = pkg?.name?.trim().toLowerCase() === "premium" ? 30 : 10;
+  const selectedDateStatus = form.event_date
+    ? availability[form.event_date]?.status ||
+      (isWeekendOrHoliday(form.event_date) ? "available" : "closed")
+    : "";
 
   const routeDistance = useMemo(() => {
     const enteredDistance = Number(manualDistance);
@@ -49,12 +64,12 @@ const BookingForm = ({ selectedPackage }) => {
   }, [manualDistance]);
 
   const transportCost = useMemo(() => {
-    if (routeDistance <= 10) {
+    if (routeDistance <= transportRadius) {
       return 0;
     }
 
-    return Math.ceil(routeDistance - 10) * 5000;
-  }, [routeDistance]);
+    return Math.ceil(routeDistance - transportRadius) * 5000;
+  }, [routeDistance, transportRadius]);
 
   const additionalCost = useMemo(() => {
     let sum = 0;
@@ -84,6 +99,8 @@ const BookingForm = ({ selectedPackage }) => {
   const submit = async () => {
     if (!form.name || !form.whatsapp || !form.event_date || !pkgId)
       return toast.error("Lengkapi datanya dulu ya kak~");
+    if (selectedDateStatus === "full")
+      return toast.error("Yahh maaf banget ka, tanggal yang kakak pilih sudah full");
     if (!isWeekendOrHoliday(form.event_date))
       return toast.error("Kita cuma buka weekend & libur nasional ya kak");
     if (paymentType === "dp" && dpAmount < 50000)
@@ -181,6 +198,22 @@ const BookingForm = ({ selectedPackage }) => {
           className="md:col-span-2 rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-venue-maps" />
       </div>
 
+      {selectedDateStatus === "full" && (
+        <p className="rounded-xl bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-800" data-testid="bf-availability-message">
+          Yahh maaf banget ka, tanggal yang kakak pilih sudah full
+        </p>
+      )}
+      {selectedDateStatus === "limited" && (
+        <p className="rounded-xl bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-800" data-testid="bf-availability-message">
+          Waduh tanggal ini sisa 1 slot lagi ka, segera keep tanggalnya yaa!!!
+        </p>
+      )}
+      {selectedDateStatus === "available" && (
+        <p className="rounded-xl bg-emerald-100 px-4 py-3 text-sm font-semibold text-emerald-800" data-testid="bf-availability-message">
+          Selamat kak, tanggal yang kakak pilih masih avail
+        </p>
+      )}
+
       <div className="space-y-3 rounded-2xl bg-white/50 p-4 border border-rose-100">
         <div className="flex items-center gap-2 text-rose-700 text-sm font-semibold">
           <MapPin size={16} /> Jarak venue dari base SESI RESEPSI
@@ -226,6 +259,11 @@ const BookingForm = ({ selectedPackage }) => {
           >
             ✅ Jarak rute: <b>{routeDistance} km</b> • Transport: <b>{rupiah(transportCost)}</b>
           </div>
+        )}
+        {pkg?.name?.trim().toLowerCase() === "premium" && (
+          <p className="rounded-xl bg-rose-100 px-3 py-2 text-sm font-semibold text-rose-800" data-testid="bf-premium-transport-notice">
+            Selamat, kakak dapat diskon biaya transport radius 30km
+          </p>
         )}
       </div>
 

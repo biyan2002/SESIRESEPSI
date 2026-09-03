@@ -71,6 +71,17 @@ dan permukaan glassmorphism.
   lokasi, jarak, paket, additional, pembayaran, status, catatan, dan bukti transfer opsional.
 - Pengujian independen booking admin lulus 5/5 backend dan seluruh alur UI desktop/mobile;
   semua data test sudah dibersihkan.
+- Admin dapat mengelola personel lewat tab Tim: tambah, edit, hapus, urutan tampil, foto, nama,
+  jabatan, dan deskripsi jobdesk. Data ini langsung menjadi konten publik Tim Kami.
+- Kapasitas kalender kini mengikuti jumlah personel tim. Admin memilih sisa slot per tanggal;
+  0 slot berarti Full, 1 slot berarti Limited, dan jumlah di atas 1 berarti Available.
+- Booking publik memberi pesan khusus untuk tanggal Full, tersisa 1 slot, dan Available. Tanggal
+  Full tidak dapat dikirim sebagai booking.
+- Portfolio mendukung tipe Foto dengan unggahan banyak gambar serta galeri foto publik.
+- Paket Premium memiliki transport gratis sampai 30 km; paket lain tetap gratis sampai 10 km.
+- Daftar booking admin diurutkan naik berdasarkan tanggal acara lalu jam acara.
+- Pengujian independen fitur tim, kapasitas kalender, portfolio foto, transport Premium, dan urutan
+  booking lulus 9/9 backend serta seluruh skenario UI desktop/mobile; data test dibersihkan.
 
 ## Backlog Prioritas
 

@@ -31,7 +31,10 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
 
   const selectedPackage = packages.find((item) => item.id === packageId);
   const distanceValue = Math.max(0, Number(distance) || 0);
-  const transportCost = distanceValue <= 10 ? 0 : Math.ceil(distanceValue - 10) * 5000;
+  const transportRadius = selectedPackage?.name?.trim().toLowerCase() === "premium" ? 30 : 10;
+  const transportCost = distanceValue <= transportRadius
+    ? 0
+    : Math.ceil(distanceValue - transportRadius) * 5000;
 
   const additionalsCost = useMemo(() => {
     return Object.entries(selectedAdds).reduce((total, [id, quantity]) => {
@@ -249,6 +252,11 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
           <p className="mt-2 text-sm text-emerald-700" data-testid="admin-booking-transport-summary">
             Transport: <b>{rupiah(transportCost)}</b>
           </p>
+          {selectedPackage?.name?.trim().toLowerCase() === "premium" && (
+            <p className="mt-2 text-sm font-semibold text-rose-700" data-testid="admin-booking-premium-notice">
+              Selamat, kakak dapat diskon biaya transport radius 30km
+            </p>
+          )}
         </div>
 
         <div className="mt-5">

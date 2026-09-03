@@ -25,7 +25,7 @@ const AvailabilityCalendar = () => {
   useEffect(() => {
     api.get("/availability").then((r) => {
       const map = {};
-      r.data.forEach((a) => (map[a.date] = a.status));
+      r.data.forEach((a) => (map[a.date] = a));
       setStatuses(map);
     });
   }, []);
@@ -44,9 +44,17 @@ const AvailabilityCalendar = () => {
   const getStatus = (d) => {
     if (!d) return null;
     const iso = d.toISOString().slice(0, 10);
-    if (statuses[iso]) return statuses[iso];
+    if (statuses[iso]) return statuses[iso].status;
     if (!isWeekendOrHoliday(d)) return "closed";
     return "available";
+  };
+
+  const getStatusLabel = (status, record) => {
+    if (status === "available" && record?.remaining_slots > 1) {
+      return `${record.remaining_slots} slot`;
+    }
+
+    return STATUS_LABEL[status];
   };
 
   return (
@@ -102,6 +110,7 @@ const AvailabilityCalendar = () => {
               if (!d) return <div key={i} />;
               const s = getStatus(d);
               const iso = d.toISOString().slice(0, 10);
+              const record = statuses[iso];
               const isHoliday = NATIONAL_HOLIDAYS_2026.includes(iso);
               return (
                 <div
@@ -110,7 +119,7 @@ const AvailabilityCalendar = () => {
                   data-testid={`cal-day-${iso}`}
                 >
                   <span className="font-bold text-base">{d.getDate()}</span>
-                  <span className="text-[10px] leading-none">{STATUS_LABEL[s]}</span>
+                  <span className="text-[10px] leading-none">{getStatusLabel(s, record)}</span>
                   {isHoliday && <span className="text-[9px] text-rose-600">libur</span>}
                 </div>
               );

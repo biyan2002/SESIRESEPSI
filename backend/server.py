@@ -126,6 +126,7 @@ class PortfolioItem(BaseModel):
     media_type: str = "youtube"  # youtube | upload
     youtube_url: str = ""
     file_path: str = ""
+    image_paths: List[str] = []
     thumbnail: str = ""
     created_at: str = Field(default_factory=now_iso)
 
@@ -166,8 +167,18 @@ class Booking(BaseModel):
 
 class Availability(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    date: str  # YYYY-MM-DD
-    status: str  # available | limited | full | closed
+    date: str
+    status: Optional[str] = None
+    remaining_slots: Optional[int] = None
+
+
+class TeamMember(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    role: str
+    description: str
+    photo_path: str = ""
+    order: int = 0
 
 
 # ================= AUTH =================
@@ -216,6 +227,23 @@ DEFAULT_ADDITIONALS = [
     {"name": "Instagram story", "price": 10000, "unit": "jam"},
 ]
 
+DEFAULT_TEAM_MEMBERS = [
+    {
+        "name": "FIKABI SA'DI MARTYANSYAH (Biyan)",
+        "role": "Owner & Orang di Balik Kamera",
+        "description": "Yang bakal ngabadiin setiap detik lucu, romantis, & baper kamu jadi frame cinematic.",
+        "photo_path": "/assets/fikabi-portrait.png",
+        "order": 1,
+    },
+    {
+        "name": "CASTI RAHAYU (Asty)",
+        "role": "Manager & Admin",
+        "description": "Bakal nemenin kamu dari chat pertama sampe hari H, biar semua smooth & seru.",
+        "photo_path": "/assets/couple.png",
+        "order": 2,
+    },
+]
+
 
 async def seed_data():
     if await db.packages.count_documents({}) == 0:
@@ -226,6 +254,10 @@ async def seed_data():
         for a in DEFAULT_ADDITIONALS:
             add = Additional(**a)
             await db.additionals.insert_one(add.model_dump())
+    if await db.team_members.count_documents({}) == 0:
+        for member_data in DEFAULT_TEAM_MEMBERS:
+            member = TeamMember(**member_data)
+            await db.team_members.insert_one(member.model_dump())
 
 
 @api_router.get("/packages")
@@ -278,6 +310,62 @@ async def update_additional(add_id: str, add: Additional, username: str = Depend
 @api_router.delete("/additionals/{add_id}")
 async def delete_additional(add_id: str, username: str = Depends(verify_admin)):
     await db.additionals.delete_one({"id": add_id})
+    return {"ok": True}
+
+
+# ================= TEAM MEMBERS =================
+async def team_capacity() -> int:
+    return await db.team_members.count_documents({})
+
+
+def availability_status(remaining_slots: int) -> str:
+    if remaining_slots <= 0:
+        return "full"
+    if remaining_slots == 1:
+        return "limited"
+    return "available"
+
+
+async def clamp_availability_to_team_capacity() -> None:
+    capacity = await team_capacity()
+    await db.availability.update_many(
+        {"remaining_slots": {"$gt": capacity}},
+        {
+            "$set": {
+                "remaining_slots": capacity,
+                "status": availability_status(capacity),
+            }
+        },
+    )
+
+
+@api_router.get("/team")
+async def list_team_members():
+    return await db.team_members.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+
+
+@api_router.post("/team")
+async def create_team_member(member: TeamMember, username: str = Depends(verify_admin)):
+    await db.team_members.insert_one(member.model_dump())
+    return member
+
+
+@api_router.put("/team/{member_id}")
+async def update_team_member(
+    member_id: str,
+    member: TeamMember,
+    username: str = Depends(verify_admin),
+):
+    data = member.model_dump()
+    data["id"] = member_id
+    await db.team_members.update_one({"id": member_id}, {"$set": data})
+    return data
+
+
+@api_router.delete("/team/{member_id}")
+async def delete_team_member(member_id: str, username: str = Depends(verify_admin)):
+    await db.team_members.delete_one({"id": member_id})
+    await clamp_availability_to_team_capacity()
     return {"ok": True}
 
 
@@ -334,22 +422,25 @@ async def delete_testimonial(t_id: str, username: str = Depends(verify_admin)):
 
 
 # ================= BOOKINGS =================
-def calculate_transport_cost(distance_km: float) -> int:
-    if distance_km <= 10:
+def calculate_transport_cost(distance_km: float, package_name: str) -> int:
+    free_radius = 30 if package_name.strip().lower() == "premium" else 10
+    if distance_km <= free_radius:
         return 0
-    return math.ceil(distance_km - 10) * 5000
+    return math.ceil(distance_km - free_radius) * 5000
 
 
 @api_router.get("/bookings")
 async def list_bookings(username: str = Depends(verify_admin)):
-    docs = await db.bookings.find({}, {"_id": 0}).sort("event_date", 1).to_list(500)
+    docs = await db.bookings.find({}, {"_id": 0}).sort(
+        [("event_date", 1), ("event_time", 1), ("created_at", 1)]
+    ).to_list(500)
     return docs
 
 
 @api_router.post("/bookings")
 async def create_booking(b: Booking):
     booking_data = b.model_dump()
-    transport_cost = calculate_transport_cost(b.distance_km)
+    transport_cost = calculate_transport_cost(b.distance_km, b.package_name)
     additionals_cost = sum(
         int(item.get("subtotal", 0))
         for item in b.additionals
@@ -376,12 +467,35 @@ async def list_availability():
 
 @api_router.post("/availability")
 async def set_availability(a: Availability, username: str = Depends(verify_admin)):
-    existing = await db.availability.find_one({"date": a.date})
-    if existing:
-        await db.availability.update_one({"date": a.date}, {"$set": {"status": a.status}})
-        return {"date": a.date, "status": a.status}
-    await db.availability.insert_one(a.model_dump())
-    return a
+    capacity = await team_capacity()
+
+    if a.status == "closed" and a.remaining_slots is None:
+        data = {"date": a.date, "status": "closed", "remaining_slots": 0}
+    else:
+        slots = a.remaining_slots
+
+        if slots is None:
+            legacy_status = a.status or "available"
+            slots = {
+                "available": capacity,
+                "limited": min(1, capacity),
+                "full": 0,
+            }.get(legacy_status)
+
+        if slots is None or slots < 0 or slots > capacity:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Sisa slot harus di antara 0 dan {capacity}.",
+            )
+
+        data = {
+            "date": a.date,
+            "status": availability_status(slots),
+            "remaining_slots": slots,
+        }
+
+    await db.availability.update_one({"date": a.date}, {"$set": data}, upsert=True)
+    return data
 
 
 @api_router.delete("/availability/{date}")

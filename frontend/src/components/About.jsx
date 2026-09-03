@@ -1,8 +1,46 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Camera, Sparkles } from "lucide-react";
+import { api, fileUrl } from "@/lib/api";
+
+const defaultMembers = [
+  {
+    id: "biyan",
+    name: "FIKABI SA'DI MARTYANSYAH (Biyan)",
+    role: "Owner & Orang di Balik Kamera",
+    photo_path: "/assets/fikabi-portrait.png",
+    description: "Yang bakal ngabadiin setiap detik lucu, romantis, & baper kamu jadi frame cinematic.",
+  },
+  {
+    id: "asty",
+    name: "CASTI RAHAYU (Asty)",
+    role: "Manager & Admin",
+    photo_path: "/assets/couple.png",
+    description: "Bakal nemenin kamu dari chat pertama sampe hari H, biar semua smooth & seru.",
+  },
+];
+
+const photoUrl = (path) => {
+  if (!path) {
+    return "/assets/couple.png";
+  }
+
+  return path.startsWith("/assets/") ? path : fileUrl(path);
+};
 
 const About = () => {
+  const [members, setMembers] = useState(defaultMembers);
+
+  useEffect(() => {
+    api.get("/team")
+      .then((response) => {
+        if (response.data.length > 0) {
+          setMembers(response.data);
+        }
+      })
+      .catch(() => setMembers(defaultMembers));
+  }, []);
+
   return (
     <section
       id="team"
@@ -24,49 +62,38 @@ const About = () => {
           </h2>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          {[
-            {
-              name: "FIKABI SA'DI MARTYANSYAH (Biyan)",
-              role: "Owner & Orang di Balik Kamera",
-              icon: Camera,
-              img: "/assets/fikabi-portrait.png",
-              desc: "Yang bakal ngabadiin setiap detik lucu, romantis, & baper kamu jadi frame cinematic.",
-            },
-            {
-              name: "CASTI RAHAYU (Asty)",
-              role: "Manager & Admin",
-              icon: Sparkles,
-              img: "/assets/couple.png",
-              desc: "Bakal nemenin kamu dari chat pertama sampe hari H, biar semua smooth & seru.",
-            },
-          ].map((m, i) => (
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          {members.map((m, i) => {
+            const Icon = i % 2 === 0 ? Camera : Sparkles;
+
+            return (
             <motion.div
-              key={m.name}
+              key={m.id}
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.15, duration: 0.7 }}
               whileHover={{ y: -6 }}
               className="glass rounded-3xl overflow-hidden group"
-              data-testid={`team-${i === 0 ? "biyan" : "asty"}`}
+              data-testid={`team-card-${m.id}`}
             >
               <div className="aspect-[4/5] overflow-hidden">
                 <img
-                  src={m.img}
+                  src={photoUrl(m.photo_path)}
                   alt={m.name}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
               </div>
               <div className="p-6">
                 <div className="flex items-center gap-2 text-rose-600 text-xs uppercase tracking-widest font-semibold mb-2">
-                  <m.icon size={14} /> {m.role}
+                  <Icon size={14} /> {m.role}
                 </div>
                 <h3 className="font-serif-display text-2xl text-rose-950">{m.name}</h3>
-                <p className="mt-3 text-rose-800/80 text-sm">{m.desc}</p>
+                <p className="mt-3 text-rose-800/80 text-sm">{m.description}</p>
               </div>
             </motion.div>
-          ))}
+          );
+          })}
         </div>
       </div>
     </section>
