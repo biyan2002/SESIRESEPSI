@@ -100,6 +100,19 @@ const BookingsTab = ({ bookings, packages, additionals, reload }) => {
     if (!window.confirm("Hapus booking ini?")) return;
     await api.delete(`/bookings/${id}`); toast.success("Deleted"); reload();
   };
+  const updateCompletion = async (id, status) => {
+    try {
+      await api.patch(`/bookings/${id}/completion`, { status });
+      toast.success(
+        status === "completed"
+          ? "Booking ditandai sudah selesai."
+          : "Booking ditandai belum selesai.",
+      );
+      reload();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Status booking belum bisa diubah.");
+    }
+  };
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -143,6 +156,37 @@ const BookingsTab = ({ bookings, packages, additionals, reload }) => {
                 </a>
               ) : <div className="italic text-rose-600 mt-1">Tidak ada</div>}
               {b.notes && <div className="mt-2"><b>Catatan:</b> {b.notes}</div>}
+            </div>
+          </div>
+          <div className="mt-4 border-t border-rose-100 pt-4" data-testid={`booking-completion-${b.id}`}>
+            <p className="text-xs font-semibold uppercase tracking-widest text-rose-600">
+              Progres pekerjaan
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => updateCompletion(b.id, "pending")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  b.status !== "completed"
+                    ? "bg-amber-100 text-amber-800 ring-1 ring-amber-300"
+                    : "bg-white/70 text-rose-700 hover:bg-white"
+                }`}
+                data-testid={`booking-mark-pending-${b.id}`}
+              >
+                Belum Selesai
+              </button>
+              <button
+                type="button"
+                onClick={() => updateCompletion(b.id, "completed")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  b.status === "completed"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-white/70 text-rose-700 hover:bg-white"
+                }`}
+                data-testid={`booking-mark-completed-${b.id}`}
+              >
+                Sudah Selesai
+              </button>
             </div>
           </div>
         </div>

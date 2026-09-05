@@ -89,6 +89,10 @@ dan permukaan glassmorphism.
 - Seluruh additional lama telah dinormalkan dengan `max_quantity: 10` agar kontrak API konsisten.
 - Pengujian independen status tanggal dan kuantitas additional lulus pada seluruh alur frontend;
   satu temuan data legacy backend telah diperbaiki dan diverifikasi kembali melalui API.
+- Booking admin kini memiliki progres pekerjaan yang dapat diubah langsung menjadi Belum Selesai
+  atau Sudah Selesai. Perubahan disimpan melalui endpoint admin yang tervalidasi.
+- Build frontend, kompilasi backend, uji API perubahan status, dan screenshot dashboard mobile
+  berhasil; data booking sementara sudah dibersihkan.
 
 ## Backlog Prioritas
 

@@ -18,7 +18,7 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
     address: "",
     maps_link: "",
     notes: "",
-    status: "confirmed",
+    status: "pending",
   });
   const [packageId, setPackageId] = useState("");
   const [selectedAdds, setSelectedAdds] = useState({});
@@ -220,9 +220,8 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
             className={inputClass}
             data-testid="admin-booking-status-select"
           >
-            <option value="confirmed">Terkonfirmasi</option>
-            <option value="pending">Menunggu konfirmasi</option>
-            <option value="completed">Selesai</option>
+            <option value="pending">Belum Selesai</option>
+            <option value="completed">Sudah Selesai</option>
           </select>
           <input
             value={form.address}

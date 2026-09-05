@@ -11,7 +11,7 @@ import jwt
 import requests
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import datetime, timezone, timedelta
 
 ROOT_DIR = Path(__file__).parent
@@ -164,6 +164,10 @@ class Booking(BaseModel):
     payment_proof_path: str = ""
     status: str = "pending"
     created_at: str = Field(default_factory=now_iso)
+
+
+class BookingCompletionUpdate(BaseModel):
+    status: Literal["pending", "completed"]
 
 
 class Availability(BaseModel):
@@ -461,6 +465,23 @@ async def create_booking(b: Booking):
 async def delete_booking(b_id: str, username: str = Depends(verify_admin)):
     await db.bookings.delete_one({"id": b_id})
     return {"ok": True}
+
+
+@api_router.patch("/bookings/{b_id}/completion")
+async def update_booking_completion(
+    b_id: str,
+    update: BookingCompletionUpdate,
+    username: str = Depends(verify_admin),
+):
+    result = await db.bookings.update_one(
+        {"id": b_id},
+        {"$set": {"status": update.status}},
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Booking tidak ditemukan")
+
+    return {"id": b_id, "status": update.status}
 
 
 # ================= AVAILABILITY =================
