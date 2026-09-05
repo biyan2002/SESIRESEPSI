@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Copy, Upload, MapPin, ExternalLink } from "lucide-react";
+import { Copy, Upload, MapPin, ExternalLink, Minus, Plus } from "lucide-react";
 import { api } from "@/lib/api";
-import { rupiah, isWeekendOrHoliday } from "@/lib/utils";
+import { rupiah } from "@/lib/utils";
 
 const BANKS = [
   { name: "BSI", holder: "FIKABI SA'DI MARTYANSYAH", num: "7310404173" },
@@ -49,8 +49,7 @@ const BookingForm = ({ selectedPackage }) => {
   const pkg = pkgs.find((p) => p.id === pkgId);
   const transportRadius = pkg?.name?.trim().toLowerCase() === "premium" ? 30 : 10;
   const selectedDateStatus = form.event_date
-    ? availability[form.event_date]?.status ||
-      (isWeekendOrHoliday(form.event_date) ? "available" : "closed")
+    ? availability[form.event_date]?.status || "available"
     : "";
 
   const routeDistance = useMemo(() => {
@@ -91,6 +90,11 @@ const BookingForm = ({ selectedPackage }) => {
     }
   };
 
+  const updateAdditionalQuantity = (id, quantity, maxQuantity) => {
+    const safeQuantity = Math.min(Math.max(1, Number(quantity) || 1), maxQuantity || 10);
+    setSelectedAdds({ ...selectedAdds, [id]: safeQuantity });
+  };
+
   const copyText = (t) => {
     navigator.clipboard.writeText(t);
     toast.success("Nomor rekening kesalin~ ✨");
@@ -101,8 +105,8 @@ const BookingForm = ({ selectedPackage }) => {
       return toast.error("Lengkapi datanya dulu ya kak~");
     if (selectedDateStatus === "full")
       return toast.error("Yahh maaf banget ka, tanggal yang kakak pilih sudah full");
-    if (!isWeekendOrHoliday(form.event_date))
-      return toast.error("Kita cuma buka weekend & libur nasional ya kak");
+    if (selectedDateStatus === "closed")
+      return toast.error("yah tanggal yang kaka pilih kami tutup ka");
     if (paymentType === "dp" && dpAmount < 50000)
       return toast.error("Minimal DP Rp 50.000 ya");
     if (manualDistance === "" || Number(manualDistance) < 0)
@@ -201,6 +205,11 @@ const BookingForm = ({ selectedPackage }) => {
       {selectedDateStatus === "full" && (
         <p className="rounded-xl bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-800" data-testid="bf-availability-message">
           Yahh maaf banget ka, tanggal yang kakak pilih sudah full
+        </p>
+      )}
+      {selectedDateStatus === "closed" && (
+        <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700" data-testid="bf-availability-message">
+          yah tanggal yang kaka pilih kami tutup ka
         </p>
       )}
       {selectedDateStatus === "limited" && (
@@ -302,9 +311,37 @@ const BookingForm = ({ selectedPackage }) => {
                   <span className="text-sm text-rose-900">{a.name} <span className="text-rose-500">({rupiah(a.price)}/{a.unit})</span></span>
                 </label>
                 {checked && (
-                  <input type="number" min="1" value={qty}
-                    onChange={(e) => setSelectedAdds({ ...selectedAdds, [a.id]: Math.max(1, parseInt(e.target.value) || 1) })}
-                    className="w-16 rounded-lg px-2 py-1 border border-rose-200 bg-white text-center" />
+                  <div className="flex items-center gap-1" data-testid={`bf-add-quantity-${a.id}`}>
+                    <button
+                      type="button"
+                      onClick={() => updateAdditionalQuantity(a.id, qty - 1, a.max_quantity)}
+                      disabled={qty <= 1}
+                      className="rounded-lg border border-rose-200 bg-white p-1 text-rose-700 disabled:opacity-40"
+                      data-testid={`bf-add-minus-${a.id}`}
+                      aria-label={`Kurangi jumlah ${a.name}`}
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      max={a.max_quantity || 10}
+                      value={qty}
+                      onChange={(e) => updateAdditionalQuantity(a.id, e.target.value, a.max_quantity)}
+                      className="w-12 rounded-lg border border-rose-200 bg-white px-1 py-1 text-center"
+                      data-testid={`bf-add-quantity-input-${a.id}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => updateAdditionalQuantity(a.id, qty + 1, a.max_quantity)}
+                      disabled={qty >= (a.max_quantity || 10)}
+                      className="rounded-lg border border-rose-200 bg-white p-1 text-rose-700 disabled:opacity-40"
+                      data-testid={`bf-add-plus-${a.id}`}
+                      aria-label={`Tambah jumlah ${a.name}`}
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
                 )}
               </div>
             );

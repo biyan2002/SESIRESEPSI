@@ -114,7 +114,8 @@ class Additional(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     price: int
-    unit: str = "item"  # per jam, per km
+    unit: str = "item"
+    max_quantity: int = Field(default=10, ge=1, le=99)
 
 
 class PortfolioItem(BaseModel):
@@ -254,6 +255,10 @@ async def seed_data():
         for a in DEFAULT_ADDITIONALS:
             add = Additional(**a)
             await db.additionals.insert_one(add.model_dump())
+    await db.additionals.update_many(
+        {"max_quantity": {"$exists": False}},
+        {"$set": {"max_quantity": 10}},
+    )
     if await db.team_members.count_documents({}) == 0:
         for member_data in DEFAULT_TEAM_MEMBERS:
             member = TeamMember(**member_data)
@@ -290,7 +295,7 @@ async def delete_package(pkg_id: str, username: str = Depends(verify_admin)):
 @api_router.get("/additionals")
 async def list_additionals():
     docs = await db.additionals.find({}, {"_id": 0}).to_list(100)
-    return docs
+    return [Additional(**doc).model_dump() for doc in docs]
 
 
 @api_router.post("/additionals")

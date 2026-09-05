@@ -197,7 +197,7 @@ const CalendarTab = ({ availability, teamCount, reload }) => {
             if (!d) return <div key={i} />;
             const iso = d.toISOString().slice(0,10);
             const record = availability[iso];
-            const status = record?.status;
+            const status = record?.status || "available";
             const selectedSlots = status === "closed"
               ? "closed"
               : String(record?.remaining_slots ?? teamCount);
@@ -292,7 +292,7 @@ const AdditionalsTab = ({ items, reload }) => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between"><h2 className="font-serif-display text-3xl">Kelola Additional</h2>
-        <button onClick={() => setEdit({ name: "", price: 0, unit: "jam" })} className="rounded-full bg-rose-600 text-white px-4 py-2"><Plus size={16} className="inline"/> Tambah</button>
+        <button onClick={() => setEdit({ name: "", price: 0, unit: "jam", max_quantity: 10 })} className="rounded-full bg-rose-600 text-white px-4 py-2"><Plus size={16} className="inline"/> Tambah</button>
       </div>
       {items.map((a) => (
         <div key={a.id} className="glass rounded-2xl p-4 flex justify-between items-center">
@@ -308,7 +308,9 @@ const AdditionalsTab = ({ items, reload }) => {
           <div className="glass-heavy rounded-3xl p-6 w-full max-w-md" onClick={(e)=>e.stopPropagation()}>
             <input placeholder="Nama" value={edit.name} onChange={(e)=>setEdit({...edit, name: e.target.value})} className="w-full rounded-xl px-3 py-2 border border-rose-200 mb-2"/>
             <input type="number" placeholder="Harga" value={edit.price} onChange={(e)=>setEdit({...edit, price: parseInt(e.target.value)||0})} className="w-full rounded-xl px-3 py-2 border border-rose-200 mb-2"/>
-            <input placeholder="Unit (jam/km)" value={edit.unit} onChange={(e)=>setEdit({...edit, unit: e.target.value})} className="w-full rounded-xl px-3 py-2 border border-rose-200 mb-3"/>
+            <input placeholder="Unit (jam/km)" value={edit.unit} onChange={(e)=>setEdit({...edit, unit: e.target.value})} className="w-full rounded-xl px-3 py-2 border border-rose-200 mb-2"/>
+            <label className="block text-sm font-semibold text-rose-800 mb-1">Maksimal jumlah yang bisa dipilih client</label>
+            <input type="number" min="1" max="99" value={edit.max_quantity || 10} onChange={(e)=>setEdit({...edit, max_quantity: Math.max(1, parseInt(e.target.value) || 1)})} className="w-full rounded-xl px-3 py-2 border border-rose-200 mb-3" data-testid="additional-max-quantity-input"/>
             <div className="flex gap-2">
               <button onClick={save} className="flex-1 rounded-full bg-rose-600 text-white py-2">Simpan</button>
               <button onClick={()=>setEdit(null)} className="flex-1 rounded-full bg-white/70 py-2">Batal</button>

@@ -82,6 +82,13 @@ dan permukaan glassmorphism.
 - Daftar booking admin diurutkan naik berdasarkan tanggal acara lalu jam acara.
 - Pengujian independen fitur tim, kapasitas kalender, portfolio foto, transport Premium, dan urutan
   booking lulus 9/9 backend serta seluruh skenario UI desktop/mobile; data test dibersihkan.
+- Tanggal tanpa pengaturan admin sekarang dianggap Available. Hanya tanggal yang eksplisit diberi
+  status Full atau Tutup yang menahan booking; status Tutup memakai notifikasi khusus.
+- Additional kini punya kontrol minus, input jumlah, dan plus untuk client. Admin dapat menentukan
+  batas maksimal kuantitas per additional dari 1 sampai 99.
+- Seluruh additional lama telah dinormalkan dengan `max_quantity: 10` agar kontrak API konsisten.
+- Pengujian independen status tanggal dan kuantitas additional lulus pada seluruh alur frontend;
+  satu temuan data legacy backend telah diperbaiki dan diverifikasi kembali melalui API.
 
 ## Backlog Prioritas
 

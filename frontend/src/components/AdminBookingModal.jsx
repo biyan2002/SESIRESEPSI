@@ -61,6 +61,11 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
     setSelectedAdds({ ...selectedAdds, [id]: checked ? 1 : 0 });
   };
 
+  const updateAdditionalQuantity = (id, quantity, maxQuantity) => {
+    const safeQuantity = Math.min(Math.max(1, Number(quantity) || 1), maxQuantity || 10);
+    setSelectedAdds({ ...selectedAdds, [id]: safeQuantity });
+  };
+
   const saveBooking = async () => {
     if (
       !form.name ||
@@ -310,10 +315,14 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
                     <input
                       type="number"
                       min="1"
+                      max={item.max_quantity || 10}
                       value={quantity}
                       onChange={(event) => {
-                        const newQuantity = Math.max(1, Number(event.target.value) || 1);
-                        setSelectedAdds({ ...selectedAdds, [item.id]: newQuantity });
+                        updateAdditionalQuantity(
+                          item.id,
+                          event.target.value,
+                          item.max_quantity,
+                        );
                       }}
                       className="w-14 rounded-lg border border-rose-200 bg-white px-2 py-1 text-center"
                       data-testid={`admin-booking-additional-quantity-${item.id}`}

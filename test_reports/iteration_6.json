@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 6: Validated availability semantics (default-available for dates without record, exact 'closed' string, full & limited messages) and Additional.max_quantity flow across API + BookingForm + AdminDashboard. Backend pytest 6/8 pass (2 failures reveal a real serialization bug for legacy seeded additionals). All frontend flows PASS end-to-end incl. exact user-facing strings, quantity controls with max=3, admin editor, and mobile 390px overflow check. All test data restored.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/additionals",
+        "issue": "Legacy seeded additionals stored before max_quantity was added are returned WITHOUT the max_quantity field. Endpoint returns raw Mongo docs (find with {'_id':0}) rather than validating through the Additional pydantic model, so the model's default=10 is not applied to responses. Frontend has fallback (|| 10) so UI still works, but API contract advertised in the model is broken for legacy rows. Fix options: (a) re-serialize via Additional(**doc).model_dump() in list_additionals, or (b) run a one-time migration to $set max_quantity=10 where missing, or (c) update seed_data to backfill missing field on startup."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_availability_additionals.py",
+    "/app/test_reports/pytest/iter6_avail_add.xml"
+  ],
+  "action_items": [
+    "Backfill max_quantity for legacy additionals or serialize GET /api/additionals through the Pydantic model so default=10 is emitted (currently missing on the 4 seeded rows: Extra time, Cinematic video, Instagram story, Instagram reels)."
+  ],
+  "critical_code_review_comments": [
+    "server.py list_additionals() returns raw Mongo docs; the Additional model default for max_quantity is never applied on read → legacy rows are missing the field.",
+    "seed_data() only inserts when count==0. When adding a new required-with-default field like max_quantity, add an idempotent backfill: db.additionals.update_many({'max_quantity': {'$exists': false}}, {'$set': {'max_quantity': 10}}).",
+    "BookingForm.jsx uses `availability[form.event_date]?.status || 'available'` — this gives the desired default-available behavior when no record exists. Explicit closed still blocks submit correctly.",
+    "POST /api/availability accepts status='closed' without remaining_slots and normalizes to slots=0 — good.",
+    "AdditionalsTab modal has data-testid='additional-max-quantity-input' with min=1/max=99 matching backend ge=1/le=99 constraint."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_availability_additionals.py"
+  ],
+  "success_rate": {
+    "backend": "75% (6/8 - 2 failures due to legacy data missing max_quantity in GET response)",
+    "frontend": "100% (all exact strings + qty controls + admin editor + mobile 390px overflow)"
+  },
+  "test_credentials": "fikabisadimartyansyah@gmail.com / Biyan2026",
+  "seed_data_creation": "Created availability records for 2026-10-17 (closed), 2026-10-19 (remaining_slots=0), 2026-10-21 (remaining_slots=1), 2026-10-15 (remaining_slots=2). Updated Extra time additional max_quantity to 3 for UI test, then restored to 10. All availability records deleted after test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login page uses generic <input>; use inputs.nth(0)/nth(1). Public form is on '/'. When testing availability defaults, ensure the date is not in the availability collection first. GET /api/additionals may omit max_quantity on legacy rows — frontend falls back to 10.",
+  "rca of the issue": "Backend list_additionals returns Mongo docs directly without Pydantic serialization, so the default value declared on Additional.max_quantity (Field(default=10)) is not injected when the field is absent from the stored document. Legacy documents inserted before the field existed therefore surface a KeyError on the API contract. Reproduction: fresh DB seeded before commit that added max_quantity → GET /api/additionals lacks the key. Mitigation: either serialize via `Additional(**doc).model_dump()` in the endpoint OR run an idempotent `update_many` in seed_data to backfill max_quantity=10 where missing."
+}
