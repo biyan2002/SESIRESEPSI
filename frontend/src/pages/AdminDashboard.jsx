@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { LogOut, Plus, Trash2, Edit, Save, Package as Pkg, Sparkles, Calendar, Star, Film, Users, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { api, fileUrl } from "@/lib/api";
-import { rupiah } from "@/lib/utils";
+import { isWeekendOrHoliday, rupiah } from "@/lib/utils";
 import AdminBookingModal from "@/components/AdminBookingModal";
 import TeamManager from "@/components/TeamManager";
 
@@ -241,7 +241,8 @@ const CalendarTab = ({ availability, teamCount, reload }) => {
             if (!d) return <div key={i} />;
             const iso = d.toISOString().slice(0,10);
             const record = availability[iso];
-            const status = record?.status || "available";
+            const operatingDay = isWeekendOrHoliday(iso);
+            const status = operatingDay ? record?.status || "available" : "closed";
             const selectedSlots = status === "closed"
               ? "closed"
               : String(record?.remaining_slots ?? teamCount);
@@ -252,6 +253,7 @@ const CalendarTab = ({ availability, teamCount, reload }) => {
                 <select
                   value={selectedSlots}
                   onChange={(event) => setRemainingSlots(iso, event.target.value)}
+                  disabled={!operatingDay}
                   className="mt-1 w-full rounded bg-white px-1 py-1 text-[10px] text-rose-800"
                   data-testid={`calendar-slots-${iso}`}
                 >

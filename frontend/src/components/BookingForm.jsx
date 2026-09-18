@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Copy, Upload, MapPin, ExternalLink, Minus, Plus } from "lucide-react";
 import { api } from "@/lib/api";
-import { rupiah } from "@/lib/utils";
+import { isWeekendOrHoliday, rupiah } from "@/lib/utils";
 
 const BANKS = [
   { name: "BSI", holder: "FIKABI SA'DI MARTYANSYAH", num: "7310404173" },
@@ -49,7 +49,9 @@ const BookingForm = ({ selectedPackage }) => {
   const pkg = pkgs.find((p) => p.id === pkgId);
   const transportRadius = pkg?.name?.trim().toLowerCase() === "premium" ? 30 : 10;
   const selectedDateStatus = form.event_date
-    ? availability[form.event_date]?.status || "available"
+    ? isWeekendOrHoliday(form.event_date)
+      ? availability[form.event_date]?.status || "available"
+      : "closed"
     : "";
 
   const routeDistance = useMemo(() => {

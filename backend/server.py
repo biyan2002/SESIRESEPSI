@@ -12,7 +12,7 @@ import requests
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Literal, Optional
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -232,6 +232,13 @@ DEFAULT_ADDITIONALS = [
     {"name": "Instagram story", "price": 10000, "unit": "jam"},
 ]
 
+NATIONAL_HOLIDAYS_2026 = {
+    "2026-01-01", "2026-02-17", "2026-03-19", "2026-03-20", "2026-04-03",
+    "2026-04-04", "2026-05-01", "2026-05-14", "2026-05-25", "2026-05-27",
+    "2026-06-01", "2026-06-16", "2026-06-17", "2026-08-17", "2026-08-25",
+    "2026-11-04", "2026-12-25",
+}
+
 DEFAULT_TEAM_MEMBERS = [
     {
         "name": "FIKABI SA'DI MARTYANSYAH (Biyan)",
@@ -333,6 +340,16 @@ def availability_status(remaining_slots: int) -> str:
     if remaining_slots == 1:
         return "limited"
     return "available"
+
+
+def is_operating_day(iso_date: str) -> bool:
+    if iso_date in NATIONAL_HOLIDAYS_2026:
+        return True
+
+    try:
+        return date.fromisoformat(iso_date).weekday() >= 5
+    except ValueError:
+        return False
 
 
 async def clamp_availability_to_team_capacity() -> None:
@@ -494,6 +511,12 @@ async def list_availability():
 @api_router.post("/availability")
 async def set_availability(a: Availability, username: str = Depends(verify_admin)):
     capacity = await team_capacity()
+
+    if not is_operating_day(a.date) and a.status != "closed":
+        raise HTTPException(
+            status_code=422,
+            detail="Hari kerja otomatis tutup kecuali tanggal merah.",
+        )
 
     if a.status == "closed" and a.remaining_slots is None:
         data = {"date": a.date, "status": "closed", "remaining_slots": 0}

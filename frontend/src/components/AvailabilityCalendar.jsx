@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
-import { NATIONAL_HOLIDAYS_2026 } from "@/lib/utils";
+import { NATIONAL_HOLIDAYS_2026, isWeekendOrHoliday } from "@/lib/utils";
 
 const STATUS_COLORS = {
   available: "bg-emerald-100 text-emerald-800 border-emerald-300",
@@ -44,6 +44,7 @@ const AvailabilityCalendar = () => {
   const getStatus = (d) => {
     if (!d) return null;
     const iso = d.toISOString().slice(0, 10);
+    if (!isWeekendOrHoliday(d)) return "closed";
     if (statuses[iso]) return statuses[iso].status;
     return "available";
   };
@@ -76,7 +77,7 @@ const AvailabilityCalendar = () => {
             Tanggal <span className="italic text-rose-600">available</span>
           </h2>
           <p className="mt-3 text-rose-800/70 text-sm">
-            Pilih tanggal yang masih tersedia dan amankan slot terbaikmu ya kak ✨
+            Kami buka Sabtu, Minggu, dan tanggal merah. Cek slotnya dulu ya kak ✨
           </p>
         </motion.div>
 
