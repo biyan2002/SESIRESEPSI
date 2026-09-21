@@ -16,7 +16,7 @@ dan permukaan glassmorphism.
 - Hero, marquee, paket, profil tim, kalender ketersediaan, formulir booking, dan testimoni.
 - Portofolio video yang dapat dikelola melalui dashboard admin.
 - Booking dengan paket, additional, perhitungan transport, pilihan DP atau lunas, dan bukti transfer.
-- Kalender untuk Sabtu, Minggu, dan hari libur nasional dengan maksimal dua slot per hari.
+- Kalender buka setiap hari dengan status manual Available atau Full.
 - Dashboard admin terlindungi untuk mengelola konten dan pesanan.
 
 ## Arsitektur
@@ -73,10 +73,8 @@ dan permukaan glassmorphism.
   semua data test sudah dibersihkan.
 - Admin dapat mengelola personel lewat tab Tim: tambah, edit, hapus, urutan tampil, foto, nama,
   jabatan, dan deskripsi jobdesk. Data ini langsung menjadi konten publik Tim Kami.
-- Kapasitas kalender kini mengikuti jumlah personel tim. Admin memilih sisa slot per tanggal;
-  0 slot berarti Full, 1 slot berarti Limited, dan jumlah di atas 1 berarti Available.
-- Booking publik memberi pesan khusus untuk tanggal Full, tersisa 1 slot, dan Available. Tanggal
-  Full tidak dapat dikirim sebagai booking.
+- Kalender memakai dua status: Available berwarna hijau dan Full berwarna merah. Status Full
+  tidak dapat dikirim sebagai booking, sedangkan Available selalu dapat dipilih.
 - Portfolio mendukung tipe Foto dengan unggahan banyak gambar serta galeri foto publik.
 - Paket Premium memiliki transport gratis sampai 30 km; paket lain tetap gratis sampai 10 km.
 - Daftar booking admin diurutkan naik berdasarkan tanggal acara lalu jam acara.
@@ -94,8 +92,8 @@ dan permukaan glassmorphism.
 - Build frontend, kompilasi backend, uji API perubahan status, dan screenshot dashboard mobile
   berhasil; data booking sementara sudah dibersihkan.
 - Hero kini menggunakan tagline Wedding Content Creator & Photographer Jabodetabek.
-- Kalender kembali buka setiap hari tanpa status Tutup. Booking baru otomatis mengurangi slot pada
-  tanggal acara; menghapus booking mengembalikan satu slot.
+- Kalender buka setiap hari tanpa status Tutup atau kuantitas slot. Booking baru tidak mengubah
+  status kalender; hanya admin yang dapat menentukan Available atau Full.
 - Form publik menerima username sosial media dan pilihan pop-up Instagram, TikTok, atau keduanya.
 - Admin dapat mengatur transfer bank, e-wallet, dan QRIS; client memilih salah satu saat booking.
 - Sistem Crew ditambahkan: admin membuat akun, mengatur penugasan per booking, dan Crew hanya
@@ -114,6 +112,7 @@ dan permukaan glassmorphism.
 - Logo invoice kini berada dalam bidang maroon berkontras tinggi agar jelas di atas latar pink.
 - Regresi workflow booking, Drive Crew, isolasi akses Crew, archive, filter, dan invoice lulus 11/11
   tes backend; build frontend serta kompilasi backend juga berhasil.
+- Perbaikan kalender Available/Full diverifikasi independen: 9/9 tes backend dan seluruh UI lulus.
 
 ## Backlog Prioritas
 

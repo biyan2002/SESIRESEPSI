@@ -320,7 +320,7 @@ const CalendarTab = ({ availability, reload }) => {
             return (
               <div key={i} className="rounded-xl border border-rose-200 p-2 text-center text-xs bg-white/60">
                 <div className="font-bold text-rose-950">{d.getDate()}</div>
-                <div className={`h-1 rounded-full my-1 ${status ? COLORS[status] : "bg-slate-200"}`} />
+                <div className={`h-1 rounded-full my-1 ${COLORS[status]}`} />
                 <div className="mt-2 grid grid-cols-2 gap-1">
                   <button type="button" onClick={() => setAvailabilityStatus(iso, "available")} className={`rounded px-1 py-1 text-[10px] font-semibold ${status === "available" ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-800"}`} data-testid={`calendar-available-${iso}`} aria-label={`Tandai ${iso} Available`}><span className="sm:hidden">A</span><span className="hidden sm:inline">Available</span></button>
                   <button type="button" onClick={() => setAvailabilityStatus(iso, "full")} className={`rounded px-1 py-1 text-[10px] font-semibold ${status === "full" ? "bg-rose-600 text-white" : "bg-rose-100 text-rose-800"}`} data-testid={`calendar-full-${iso}`} aria-label={`Tandai ${iso} Full`}><span className="sm:hidden">F</span><span className="hidden sm:inline">Full</span></button>

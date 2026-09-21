@@ -483,20 +483,6 @@ async def delete_additional(add_id: str, username: str = Depends(verify_admin)):
 
 
 # ================= TEAM MEMBERS =================
-async def team_capacity() -> int:
-    return await db.team_members.count_documents({})
-
-
-def availability_status(remaining_slots: int) -> str:
-    if remaining_slots <= 0:
-        return "full"
-    return "available"
-
-
-async def clamp_availability_to_team_capacity() -> None:
-    return None
-
-
 @api_router.get("/team")
 async def list_team_members():
     return await db.team_members.find({}, {"_id": 0}).sort("order", 1).to_list(100)
@@ -525,7 +511,6 @@ async def delete_team_member(member_id: str, username: str = Depends(verify_admi
     await db.team_members.delete_one({"id": member_id})
     await db.crew_accounts.delete_many({"member_id": member_id})
     await db.crew_assignments.delete_many({"crew_member_id": member_id})
-    await clamp_availability_to_team_capacity()
     return {"ok": True}
 
 

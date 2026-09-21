@@ -1,0 +1,24 @@
+{
+  "summary": "Iteration 9 verified: availability API restricted to 'available'/'full'; legacy statuses rejected (422); Full blocks booking with 409; Available allows multiple bookings without changing status; delete bookings keeps status Available. Admin CalendarTab exposes only A/F actions with correct data-testids; no slot selector/Tutup/limited controls. Mobile 390px renders 'A'/'F' compact labels without overflow. Public AvailabilityCalendar renders green (bg-emerald-100) for available and would render red for full. BookingForm messages match spec.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration9_availability.py",
+    "/app/test_reports/pytest/iteration_9.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py still contains dead helpers `availability_status(remaining_slots)`, `clamp_availability_to_team_capacity`, and `team_capacity` that reference legacy slot logic; safe to remove for clarity.",
+    "AdminDashboard.jsx CalendarTab hardcodes status default to 'available' when record missing but colors bar via `status ? COLORS[status] : bg-slate-200` — the ternary is unreachable since status is always truthy; minor dead code."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration9_availability.py"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100%"},
+  "test_credentials": "Admin owner fikabisadimartyansyah@gmail.com / Biyan2026 (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "Test date 2027-09-15 used for availability/booking flows; all TEST_* bookings and availability record cleaned up via test_cleanup fixture and DELETE /api/availability/2027-09-15 (verified empty).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Availability endpoint now returns only {date,status: available|full}; no remaining_slots or limited/closed. Booking date validation only guarded by 'full'. AdminDashboard CalendarTab uses testids calendar-available-YYYY-MM-DD and calendar-full-YYYY-MM-DD with A/F mobile labels via responsive sm:hidden classes. Public AvailabilityCalendar uses testid cal-day-YYYY-MM-DD with emerald/rose classes.",
+  "rca of the issue": "N/A — no defects found."
+}
