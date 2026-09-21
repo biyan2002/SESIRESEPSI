@@ -112,6 +112,16 @@ dan permukaan glassmorphism.
 - Logo invoice kini berada dalam bidang maroon berkontras tinggi agar jelas di atas latar pink.
 - Regresi workflow booking, Drive Crew, isolasi akses Crew, archive, filter, dan invoice lulus 11/11
   tes backend; build frontend serta kompilasi backend juga berhasil.
+- Booking menampilkan Crew yang bertugas beserta job, progres, dan link hasil Drive yang hanya dapat
+  diperbarui melalui ruang Crew. Filter booking dapat memilih nama Crew yang ditugaskan.
+- Fee tim per job adalah total booking dikurangi Rp50.000 dan tampil pada ruang Tim serta job Crew.
+- Nomor WhatsApp client pada admin/Crew membuka chat WhatsApp dengan template perkenalan SESI RESEPSI.
+- Job yang sudah diselesaikan dapat dihapus sendiri oleh Crew, sedangkan job belum selesai tetap aman.
+- Hari kerja Senin–Jumat (di luar tanggal merah 2026) menambah Rp50.000 pada total dan invoice.
+- Ruang Finance menampilkan uang masuk, nilai booking, dan jumlah booking secara keseluruhan serta
+  tabel harian, mingguan, dan bulanan.
+- Pengujian independen fee weekday, Crew, Drive, WhatsApp, filter Crew, finance, dan invoice lulus
+  15/15; invoice weekday juga dirender dan diverifikasi visualnya sebelum data test dibersihkan.
 - Perbaikan kalender Available/Full diverifikasi independen: 9/9 tes backend dan seluruh UI lulus.
 - Admin booking manual memakai endpoint override sehingga dapat mencatat booking pada tanggal Full;
   booking publik tetap ditolak saat tanggal berstatus Full.
