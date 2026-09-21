@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { CalendarDays, LogOut, MapPin, Navigation, UsersRound } from "lucide-react";
+import { CalendarDays, Link, LogOut, MapPin, Navigation, Save, UsersRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
 export default function CrewDashboard() {
   const [jobs, setJobs] = useState([]);
+  const [workDrafts, setWorkDrafts] = useState({});
   const [name, setName] = useState(localStorage.getItem("sr_crew_name") || "Crew");
   const navigate = useNavigate();
 
@@ -16,7 +17,17 @@ export default function CrewDashboard() {
       return;
     }
     api.get("/crew/jobs", { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => setJobs(response.data))
+      .then((response) => {
+        setJobs(response.data);
+        const drafts = {};
+        response.data.forEach(({ assignment }) => {
+          drafts[assignment.id] = {
+            work_drive_url: assignment.work_drive_url || "",
+            work_status: assignment.work_status || "pending",
+          };
+        });
+        setWorkDrafts(drafts);
+      })
       .catch(() => {
         localStorage.removeItem("sr_crew_token");
         toast.error("Sesi Crew berakhir. Silakan login lagi.");
@@ -28,6 +39,32 @@ export default function CrewDashboard() {
     localStorage.removeItem("sr_crew_token");
     localStorage.removeItem("sr_crew_name");
     navigate("/crew/login");
+  };
+
+  const updateWorkDraft = (assignmentId, key, value) => {
+    setWorkDrafts({
+      ...workDrafts,
+      [assignmentId]: { ...workDrafts[assignmentId], [key]: value },
+    });
+  };
+
+  const saveWork = async (assignmentId) => {
+    const token = localStorage.getItem("sr_crew_token");
+    try {
+      const response = await api.patch(
+        `/crew/jobs/${assignmentId}/work`,
+        workDrafts[assignmentId],
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setJobs(jobs.map((job) => (
+        job.assignment.id === assignmentId
+          ? { ...job, assignment: response.data }
+          : job
+      )));
+      toast.success("Link hasil dan progres job tersimpan.");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Pembaruan job belum tersimpan.");
+    }
   };
 
   return (
@@ -67,6 +104,23 @@ export default function CrewDashboard() {
                 {booking.maps_link && (
                   <a href={booking.maps_link} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-rose-600 underline" data-testid={`crew-job-map-${assignment.id}`}><Navigation size={15} /> Buka lokasi</a>
                 )}
+                {booking.work_drive_url && (
+                  <a href={booking.work_drive_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-rose-600 underline" data-testid={`crew-booking-work-drive-${assignment.id}`}><Link size={15} /> Hasil kerja dari admin</a>
+                )}
+                <div className="mt-4 border-t border-rose-100 pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-rose-600">Update hasil kerja</p>
+                  <input
+                    value={workDrafts[assignment.id]?.work_drive_url || ""}
+                    onChange={(event) => updateWorkDraft(assignment.id, "work_drive_url", event.target.value)}
+                    placeholder="Link Google Drive hasil kerja"
+                    className="mt-2 w-full rounded-xl border border-rose-200 bg-white/75 px-3 py-2 text-sm"
+                    data-testid={`crew-work-drive-input-${assignment.id}`}
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[{ value: "pending", label: "BELUM SELESAI" }, { value: "completed", label: "SUDAH SELESAI" }].map((option) => <button key={option.value} type="button" onClick={() => updateWorkDraft(assignment.id, "work_status", option.value)} className={`rounded-full px-3 py-2 text-xs font-semibold ${workDrafts[assignment.id]?.work_status === option.value ? "bg-rose-600 text-white" : "bg-white/75 text-rose-700"}`} data-testid={`crew-work-status-${option.value}-${assignment.id}`}>{option.label}</button>)}
+                  </div>
+                  <button type="button" onClick={() => saveWork(assignment.id)} className="mt-3 inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white" data-testid={`crew-save-work-${assignment.id}`}><Save size={15} /> Simpan update</button>
+                </div>
               </article>
             ))}
           </div>

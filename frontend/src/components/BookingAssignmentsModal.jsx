@@ -16,6 +16,8 @@ const BookingAssignmentsModal = ({ booking, members, onClose, onSaved }) => {
             selected: true,
             job_title: item.job_title,
             notes: item.notes,
+            work_drive_url: item.work_drive_url || "",
+            work_status: item.work_status || "pending",
           };
         });
         setAssignments(initial);
@@ -48,6 +50,8 @@ const BookingAssignmentsModal = ({ booking, members, onClose, onSaved }) => {
         crew_member_id,
         job_title: assignment.job_title || "Crew Acara",
         notes: assignment.notes || "",
+        work_drive_url: assignment.work_drive_url || "",
+        work_status: assignment.work_status || "pending",
       }));
 
     setSaving(true);
@@ -134,6 +138,12 @@ const BookingAssignmentsModal = ({ booking, members, onClose, onSaved }) => {
                       className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm"
                       data-testid={`assignment-notes-${member.id}`}
                     />
+                  </div>
+                )}
+                {assignment.selected && assignment.work_drive_url && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                    <a href={assignment.work_drive_url} target="_blank" rel="noreferrer" className="font-semibold text-rose-600 underline" data-testid={`assignment-work-drive-${member.id}`}>Buka hasil Crew</a>
+                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${assignment.work_status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{assignment.work_status === "completed" ? "SUDAH SELESAI" : "BELUM SELESAI"}</span>
                   </div>
                 )}
               </article>

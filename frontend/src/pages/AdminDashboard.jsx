@@ -104,6 +104,11 @@ const AdminDashboard = () => {
 const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) => {
   const [showAddBooking, setShowAddBooking] = useState(false);
   const [assignmentBooking, setAssignmentBooking] = useState(null);
+  const [bookingSpace, setBookingSpace] = useState("active");
+  const [query, setQuery] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [workDrafts, setWorkDrafts] = useState({});
   const del = async (id) => {
     if (!window.confirm("Hapus booking ini?")) return;
     await api.delete(`/bookings/${id}`); toast.success("Deleted"); reload();
@@ -138,11 +143,32 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
       toast.error(error.response?.data?.detail || "Invoice belum bisa diunduh.");
     }
   };
+  const updateWorkDrive = async (booking) => {
+    try {
+      const workDriveUrl = workDrafts[booking.id] ?? booking.work_drive_url ?? "";
+      await api.patch(`/bookings/${booking.id}/work`, { work_drive_url: workDriveUrl });
+      toast.success("Link hasil kerja tersimpan.");
+      reload();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Link hasil belum bisa disimpan.");
+    }
+  };
+  const filteredBookings = bookings.filter((booking) => {
+    const completionMatches = bookingSpace === "archive"
+      ? booking.status === "completed"
+      : booking.status !== "completed";
+    const queryMatches = `${booking.name} ${booking.event_date}`.toLowerCase().includes(query.toLowerCase());
+    const dateMatches = !selectedDate || booking.event_date === selectedDate;
+    const monthMatches = !selectedMonth || booking.event_date.startsWith(selectedMonth);
+    return completionMatches && queryMatches && dateMatches && monthMatches;
+  });
+  const activeCount = bookings.filter((booking) => booking.status !== "completed").length;
+  const archiveCount = bookings.filter((booking) => booking.status === "completed").length;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-serif-display text-3xl text-rose-950">
-          Semua Booking ({bookings.length})
+          {bookingSpace === "archive" ? "Arsip Client Selesai" : "Client Belum Selesai"} ({filteredBookings.length})
         </h2>
         <button
           type="button"
@@ -153,8 +179,15 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
           <Plus size={16} /> Tambah booking
         </button>
       </div>
-      {bookings.length === 0 && <div className="glass p-8 rounded-2xl text-center text-rose-700">Belum ada booking</div>}
-      {bookings.map((b) => (
+      <div className="grid gap-3 rounded-2xl p-4 glass sm:grid-cols-[auto_auto_1fr_auto_auto]" data-testid="bookings-filter-bar">
+        <button type="button" onClick={() => setBookingSpace("active")} className={`rounded-full px-4 py-2 text-sm font-semibold ${bookingSpace === "active" ? "bg-rose-600 text-white" : "bg-white/75 text-rose-800"}`} data-testid="bookings-active-space">Belum Selesai ({activeCount})</button>
+        <button type="button" onClick={() => setBookingSpace("archive")} className={`rounded-full px-4 py-2 text-sm font-semibold ${bookingSpace === "archive" ? "bg-emerald-600 text-white" : "bg-white/75 text-rose-800"}`} data-testid="bookings-archive-space">Arsip Selesai ({archiveCount})</button>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama client atau tanggal" className="rounded-xl border border-rose-200 bg-white/75 px-3 py-2 text-sm" data-testid="bookings-search-input" />
+        <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="rounded-xl border border-rose-200 bg-white/75 px-3 py-2 text-sm" data-testid="bookings-date-filter" />
+        <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="rounded-xl border border-rose-200 bg-white/75 px-3 py-2 text-sm" data-testid="bookings-month-filter" />
+      </div>
+      {filteredBookings.length === 0 && <div className="glass rounded-2xl p-8 text-center text-rose-700">Tidak ada client pada ruang ini</div>}
+      {filteredBookings.map((b) => (
         <div key={b.id} className="glass-heavy rounded-2xl p-6" data-testid={`booking-row-${b.id}`}>
           <div className="flex justify-between flex-wrap gap-2">
             <div>
@@ -216,6 +249,14 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
               >
                 Sudah Selesai
               </button>
+            </div>
+          </div>
+          <div className="mt-4 border-t border-rose-100 pt-4" data-testid={`booking-work-drive-${b.id}`}>
+            <p className="text-xs font-semibold uppercase tracking-widest text-rose-600">Hasil kerja Google Drive</p>
+            {b.work_drive_url && <a href={b.work_drive_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-rose-600 underline" data-testid={`booking-work-drive-link-${b.id}`}><ExternalLink size={14} /> Buka hasil kerja</a>}
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <input value={workDrafts[b.id] ?? b.work_drive_url ?? ""} onChange={(event) => setWorkDrafts({ ...workDrafts, [b.id]: event.target.value })} placeholder="Tempel link Google Drive hasil kerja" className="flex-1 rounded-xl border border-rose-200 bg-white/75 px-3 py-2 text-sm" data-testid={`booking-work-drive-input-${b.id}`} />
+              <button type="button" onClick={() => updateWorkDrive(b)} className="rounded-full bg-rose-100 px-4 py-2 text-sm font-semibold text-rose-700" data-testid={`booking-work-drive-save-${b.id}`}>Simpan link</button>
             </div>
           </div>
         </div>

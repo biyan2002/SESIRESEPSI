@@ -204,6 +204,7 @@ class Booking(BaseModel):
     payment_method: str = "bank"
     social_username: str = ""
     social_platforms: List[str] = []
+    work_drive_url: str = ""
     invoice_number: str = ""
     invoice_token: str = ""
     created_at: str = Field(default_factory=now_iso)
@@ -211,6 +212,10 @@ class Booking(BaseModel):
 
 class BookingCompletionUpdate(BaseModel):
     status: Literal["pending", "completed"]
+
+
+class BookingWorkUpdate(BaseModel):
+    work_drive_url: str = ""
 
 
 class Availability(BaseModel):
@@ -247,6 +252,8 @@ class CrewAssignmentInput(BaseModel):
     crew_member_id: str
     job_title: str = "Crew Acara"
     notes: str = ""
+    work_drive_url: str = ""
+    work_status: Literal["pending", "completed"] = "pending"
 
 
 class CrewAssignment(CrewAssignmentInput):
@@ -257,6 +264,11 @@ class CrewAssignment(CrewAssignmentInput):
 
 class CrewAssignmentBatch(BaseModel):
     assignments: List[CrewAssignmentInput] = []
+
+
+class CrewWorkUpdate(BaseModel):
+    work_drive_url: str = ""
+    work_status: Literal["pending", "completed"]
 
 
 class PaymentAccount(BaseModel):
@@ -658,6 +670,8 @@ async def list_crew_jobs(account: dict = Depends(verify_crew)):
                 "address": 1,
                 "maps_link": 1,
                 "notes": 1,
+                "work_drive_url": 1,
+                "status": 1,
             },
         )
         if booking:
@@ -667,6 +681,28 @@ async def list_crew_jobs(account: dict = Depends(verify_crew)):
         jobs,
         key=lambda job: (job["booking"]["event_date"], job["booking"]["event_time"]),
     )
+
+
+@api_router.patch("/crew/jobs/{assignment_id}/work")
+async def update_crew_work(
+    assignment_id: str,
+    update: CrewWorkUpdate,
+    account: dict = Depends(verify_crew),
+):
+    result = await db.crew_assignments.update_one(
+        {"id": assignment_id, "crew_member_id": account["member_id"]},
+        {
+            "$set": {
+                "work_drive_url": update.work_drive_url.strip(),
+                "work_status": update.work_status,
+            }
+        },
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Job Crew tidak ditemukan")
+
+    assignment = await db.crew_assignments.find_one({"id": assignment_id}, {"_id": 0})
+    return assignment
 
 
 # ================= PORTFOLIO =================
@@ -820,6 +856,21 @@ async def update_booking_completion(
     return {"id": b_id, "status": update.status}
 
 
+@api_router.patch("/bookings/{b_id}/work")
+async def update_booking_work(
+    b_id: str,
+    update: BookingWorkUpdate,
+    username: str = Depends(verify_admin),
+):
+    result = await db.bookings.update_one(
+        {"id": b_id},
+        {"$set": {"work_drive_url": update.work_drive_url.strip()}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Booking tidak ditemukan")
+    return {"id": b_id, "work_drive_url": update.work_drive_url.strip()}
+
+
 def make_invoice_number(event_date: str) -> str:
     date_part = event_date.replace("-", "") or datetime.now(timezone.utc).strftime("%Y%m%d")
     return f"SR-{date_part}-{uuid.uuid4().hex[:6].upper()}"
@@ -859,12 +910,14 @@ def build_invoice_pdf(booking: dict) -> bytes:
     draw_flower(pdf, 28 * mm, page_height - 24 * mm, 7 * mm)
     draw_flower(pdf, page_width - 30 * mm, 32 * mm, 8 * mm)
     if LOGO_PATH.exists():
+        pdf.setFillColor(colors.HexColor("#4c0519"))
+        pdf.roundRect(20 * mm, page_height - 47 * mm, 25 * mm, 25 * mm, 4 * mm, fill=1, stroke=0)
         pdf.drawImage(
             ImageReader(str(LOGO_PATH)),
-            22 * mm,
-            page_height - 44 * mm,
-            width=18 * mm,
-            height=18 * mm,
+            21.5 * mm,
+            page_height - 45.5 * mm,
+            width=22 * mm,
+            height=22 * mm,
             mask="auto",
         )
 
