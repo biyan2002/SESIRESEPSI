@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Edit3, ImagePlus, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, fileUrl } from "@/lib/api";
+import { rupiah } from "@/lib/utils";
 
 const emptyMember = {
   name: "",
@@ -19,7 +20,7 @@ const resolveImage = (path) => {
   return path.startsWith("/assets/") ? path : fileUrl(path);
 };
 
-const TeamManager = ({ members, reload }) => {
+const TeamManager = ({ members, bookings = [], reload }) => {
   const [editingMember, setEditingMember] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -102,6 +103,13 @@ const TeamManager = ({ members, reload }) => {
     }
   };
 
+  const memberFee = (memberId) => {
+    return bookings.reduce((total, booking) => {
+      const assignment = booking.assigned_crew?.find((item) => item.member_id === memberId);
+      return total + (assignment?.team_fee || 0);
+    }, 0);
+  };
+
   return (
     <section className="space-y-5" data-testid="team-manager">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -156,6 +164,9 @@ const TeamManager = ({ members, reload }) => {
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-rose-800/80">
                 {member.description}
+              </p>
+              <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800" data-testid={`team-fee-${member.id}`}>
+                Fee job terjadwal: <b>{rupiah(memberFee(member.id))}</b>
               </p>
               <div className="mt-4 flex gap-2">
                 <button

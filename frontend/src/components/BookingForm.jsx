@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Copy, Upload, MapPin, ExternalLink, Minus, Plus, X } from "lucide-react";
 import { api, fileUrl } from "@/lib/api";
-import { rupiah } from "@/lib/utils";
+import { isWeekdayNonHoliday, rupiah } from "@/lib/utils";
 
 const BookingForm = ({ selectedPackage }) => {
   const [pkgs, setPkgs] = useState([]);
@@ -87,7 +87,11 @@ const BookingForm = ({ selectedPackage }) => {
     return sum;
   }, [selectedAdds, adds]);
 
-  const total = (pkg?.price || 0) + additionalCost + transportCost;
+  const weekdayFee = useMemo(() => {
+    return isWeekdayNonHoliday(form.event_date) ? 50000 : 0;
+  }, [form.event_date]);
+
+  const total = (pkg?.price || 0) + additionalCost + transportCost + weekdayFee;
 
   const dpAmount = paymentType === "lunas" ? total :
     (dpChoice === "custom" ? parseInt(customDp || 0) : parseInt(dpChoice));
@@ -143,6 +147,7 @@ const BookingForm = ({ selectedPackage }) => {
         package_price: pkg.price,
         additionals: addsPayload,
         transport_cost: transportCost,
+        weekday_fee: weekdayFee,
         total_price: total,
         payment_type: paymentType,
         payment_amount: dpAmount,
@@ -384,6 +389,11 @@ const BookingForm = ({ selectedPackage }) => {
         <div className="flex justify-between text-sm text-rose-900">
           <span>Transport</span><span>{rupiah(transportCost)}</span>
         </div>
+        {weekdayFee > 0 && (
+          <div className="flex justify-between text-sm font-semibold text-rose-800" data-testid="bf-weekday-fee">
+            <span>Tambahan hari kerja</span><span>{rupiah(weekdayFee)}</span>
+          </div>
+        )}
         <div className="h-px bg-rose-300" />
         <div className="flex justify-between font-serif-display text-2xl text-rose-950">
           <span>Total</span><span data-testid="bf-total">{rupiah(total)}</span>

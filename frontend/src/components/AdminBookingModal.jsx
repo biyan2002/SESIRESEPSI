@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { MapPin, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { rupiah } from "@/lib/utils";
+import { isWeekdayNonHoliday, rupiah } from "@/lib/utils";
 
 const inputClass =
   "w-full rounded-xl border border-rose-200 bg-white/75 px-4 py-3 outline-none " +
@@ -35,6 +35,7 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
   const transportCost = distanceValue <= transportRadius
     ? 0
     : Math.ceil(distanceValue - transportRadius) * 5000;
+  const weekdayFee = isWeekdayNonHoliday(form.event_date) ? 50000 : 0;
 
   const additionalsCost = useMemo(() => {
     return Object.entries(selectedAdds).reduce((total, [id, quantity]) => {
@@ -44,7 +45,7 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
     }, 0);
   }, [additionals, selectedAdds]);
 
-  const total = (selectedPackage?.price || 0) + additionalsCost + transportCost;
+  const total = (selectedPackage?.price || 0) + additionalsCost + transportCost + weekdayFee;
   const paymentAmount = paymentType === "lunas"
     ? total
     : dpChoice === "custom"
@@ -125,6 +126,7 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
         package_price: selectedPackage.price,
         additionals: selectedAdditionals,
         transport_cost: transportCost,
+        weekday_fee: weekdayFee,
         total_price: total,
         payment_type: paymentType,
         payment_amount: paymentAmount,
@@ -391,6 +393,12 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
             <span>Total booking</span>
             <b data-testid="admin-booking-total">{rupiah(total)}</b>
           </div>
+          {weekdayFee > 0 && (
+            <div className="mt-1 flex justify-between text-sm font-semibold text-rose-800" data-testid="admin-booking-weekday-fee">
+              <span>Tambahan hari kerja</span>
+              <b>{rupiah(weekdayFee)}</b>
+            </div>
+          )}
           <div className="mt-1 flex justify-between text-sm text-rose-900">
             <span>Nominal dibayar</span>
             <b data-testid="admin-booking-payment-amount">{rupiah(paymentAmount)}</b>

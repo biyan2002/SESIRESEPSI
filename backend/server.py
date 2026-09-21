@@ -14,7 +14,7 @@ from io import BytesIO
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Literal, Optional
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -196,6 +196,7 @@ class Booking(BaseModel):
     package_price: int
     additionals: List[dict] = []
     transport_cost: int = 0
+    weekday_fee: int = 0
     total_price: int
     payment_type: str  # lunas | dp
     payment_amount: int
@@ -212,10 +213,6 @@ class Booking(BaseModel):
 
 class BookingCompletionUpdate(BaseModel):
     status: Literal["pending", "completed"]
-
-
-class BookingWorkUpdate(BaseModel):
-    work_drive_url: str = ""
 
 
 class Availability(BaseModel):
@@ -270,6 +267,12 @@ class CrewAssignmentBatch(BaseModel):
 class CrewWorkUpdate(BaseModel):
     work_drive_url: str = ""
     work_status: Literal["pending", "completed"]
+
+
+class FinanceSummary(BaseModel):
+    incoming: int
+    booking_value: int
+    booking_count: int
 
 
 class PaymentAccount(BaseModel):
@@ -659,10 +662,17 @@ async def list_crew_jobs(account: dict = Depends(verify_crew)):
                 "notes": 1,
                 "work_drive_url": 1,
                 "status": 1,
+                "total_price": 1,
             },
         )
         if booking:
-            jobs.append({"assignment": assignment, "booking": booking})
+            jobs.append(
+                {
+                    "assignment": assignment,
+                    "booking": booking,
+                    "team_fee": calculate_team_fee(booking.get("total_price", 0)),
+                }
+            )
 
     return sorted(
         jobs,
@@ -690,6 +700,24 @@ async def update_crew_work(
 
     assignment = await db.crew_assignments.find_one({"id": assignment_id}, {"_id": 0})
     return assignment
+
+
+@api_router.delete("/crew/jobs/{assignment_id}")
+async def delete_completed_crew_job(
+    assignment_id: str,
+    account: dict = Depends(verify_crew),
+):
+    assignment = await db.crew_assignments.find_one(
+        {"id": assignment_id, "crew_member_id": account["member_id"]},
+        {"_id": 0},
+    )
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Job Crew tidak ditemukan")
+    if assignment.get("work_status") != "completed":
+        raise HTTPException(status_code=422, detail="Selesaikan job sebelum menghapusnya")
+
+    await db.crew_assignments.delete_one({"id": assignment_id})
+    return {"ok": True}
 
 
 # ================= PORTFOLIO =================
@@ -752,6 +780,21 @@ def calculate_transport_cost(distance_km: float, package_name: str) -> int:
     return math.ceil(distance_km - free_radius) * 5000
 
 
+def calculate_weekday_fee(event_date: str) -> int:
+    try:
+        event_day = date.fromisoformat(event_date)
+    except ValueError:
+        return 0
+
+    if event_day.isoformat() in NATIONAL_HOLIDAYS_2026:
+        return 0
+    return 50000 if event_day.weekday() < 5 else 0
+
+
+def calculate_team_fee(total_price: int) -> int:
+    return max(int(total_price) - 50000, 0)
+
+
 async def ensure_booking_date_available(event_date: str) -> None:
     current = await db.availability.find_one({"date": event_date}, {"_id": 0})
     if current and current.get("status") == "full":
@@ -763,6 +806,30 @@ async def list_bookings(username: str = Depends(verify_admin)):
     docs = await db.bookings.find({}, {"_id": 0}).sort(
         [("event_date", 1), ("event_time", 1), ("created_at", 1)]
     ).to_list(500)
+    assignments = await db.crew_assignments.find({}, {"_id": 0}).to_list(1000)
+    members = await db.team_members.find({}, {"_id": 0}).to_list(100)
+    members_by_id = {member["id"]: member for member in members}
+    assignments_by_booking = {}
+    for assignment in assignments:
+        assignments_by_booking.setdefault(assignment["booking_id"], []).append(assignment)
+
+    for booking in docs:
+        crew_for_booking = []
+        for assignment in assignments_by_booking.get(booking["id"], []):
+            member = members_by_id.get(assignment["crew_member_id"])
+            if member:
+                crew_for_booking.append(
+                    {
+                        "member_id": member["id"],
+                        "name": member["name"],
+                        "role": member["role"],
+                        "job_title": assignment["job_title"],
+                        "work_status": assignment.get("work_status", "pending"),
+                        "work_drive_url": assignment.get("work_drive_url", ""),
+                        "team_fee": calculate_team_fee(booking.get("total_price", 0)),
+                    }
+                )
+        booking["assigned_crew"] = crew_for_booking
     return docs
 
 
@@ -775,7 +842,11 @@ async def persist_booking(b: Booking, enforce_availability: bool) -> dict:
         if isinstance(item, dict)
     )
     booking_data["transport_cost"] = transport_cost
-    booking_data["total_price"] = b.package_price + additionals_cost + transport_cost
+    weekday_fee = calculate_weekday_fee(b.event_date)
+    booking_data["weekday_fee"] = weekday_fee
+    booking_data["total_price"] = (
+        b.package_price + additionals_cost + transport_cost + weekday_fee
+    )
     booking_data["invoice_number"] = make_invoice_number(b.event_date)
     booking_data["invoice_token"] = uuid.uuid4().hex
     if enforce_availability:
@@ -823,19 +894,49 @@ async def update_booking_completion(
     return {"id": b_id, "status": update.status}
 
 
-@api_router.patch("/bookings/{b_id}/work")
-async def update_booking_work(
-    b_id: str,
-    update: BookingWorkUpdate,
-    username: str = Depends(verify_admin),
-):
-    result = await db.bookings.update_one(
-        {"id": b_id},
-        {"$set": {"work_drive_url": update.work_drive_url.strip()}},
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Booking tidak ditemukan")
-    return {"id": b_id, "work_drive_url": update.work_drive_url.strip()}
+@api_router.get("/finance/summary")
+async def get_finance_summary(username: str = Depends(verify_admin)):
+    bookings = await db.bookings.find(
+        {},
+        {"_id": 0, "payment_amount": 1, "total_price": 1, "created_at": 1},
+    ).to_list(1000)
+    daily = {}
+    weekly = {}
+    monthly = {}
+    overall = {"incoming": 0, "booking_value": 0, "booking_count": 0}
+
+    for booking in bookings:
+        incoming = int(booking.get("payment_amount", 0))
+        booking_value = int(booking.get("total_price", 0))
+        created_at = booking.get("created_at", now_iso())
+        created_day = created_at[:10]
+        try:
+            created_date = date.fromisoformat(created_day)
+        except ValueError:
+            created_date = datetime.now(timezone.utc).date()
+            created_day = created_date.isoformat()
+
+        week_year, week_number, _ = created_date.isocalendar()
+        week_key = f"{week_year}-W{week_number:02d}"
+        month_key = created_day[:7]
+        overall["incoming"] += incoming
+        overall["booking_value"] += booking_value
+        overall["booking_count"] += 1
+        for collection, key in ((daily, created_day), (weekly, week_key), (monthly, month_key)):
+            bucket = collection.setdefault(
+                key,
+                {"label": key, "incoming": 0, "booking_value": 0, "booking_count": 0},
+            )
+            bucket["incoming"] += incoming
+            bucket["booking_value"] += booking_value
+            bucket["booking_count"] += 1
+
+    return {
+        "overall": overall,
+        "daily": sorted(daily.values(), key=lambda item: item["label"], reverse=True),
+        "weekly": sorted(weekly.values(), key=lambda item: item["label"], reverse=True),
+        "monthly": sorted(monthly.values(), key=lambda item: item["label"], reverse=True),
+    }
 
 
 def make_invoice_number(event_date: str) -> str:
@@ -932,6 +1033,8 @@ def build_invoice_pdf(booking: dict) -> bytes:
         for item in booking.get("additionals", [])
     )
     lines.append(("Transport", booking.get("transport_cost", 0)))
+    if booking.get("weekday_fee", 0) > 0:
+        lines.append(("Tambahan hari kerja", booking.get("weekday_fee", 0)))
     for label, amount in lines:
         pdf.setFont("Helvetica", 10)
         pdf.setFillColor(colors.HexColor("#4c0519"))
@@ -1027,9 +1130,9 @@ async def reset_all_availability(username: str = Depends(verify_admin)):
     return {"ok": True}
 
 
-@api_router.delete("/availability/{date}")
-async def delete_availability(date: str, username: str = Depends(verify_admin)):
-    await db.availability.delete_one({"date": date})
+@api_router.delete("/availability/{availability_date}")
+async def delete_availability(availability_date: str, username: str = Depends(verify_admin)):
+    await db.availability.delete_one({"date": availability_date})
     return {"ok": True}
 
 

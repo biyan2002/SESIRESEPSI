@@ -22,3 +22,12 @@ export const isWeekendOrHoliday = (date) => {
   const iso = d.toISOString().slice(0, 10);
   return day === 0 || day === 6 || NATIONAL_HOLIDAYS_2026.includes(iso);
 };
+
+export const isWeekdayNonHoliday = (isoDate) => {
+  if (!isoDate || NATIONAL_HOLIDAYS_2026.includes(isoDate)) {
+    return false;
+  }
+
+  const day = new Date(`${isoDate}T00:00:00`).getDay();
+  return day >= 1 && day <= 5;
+};

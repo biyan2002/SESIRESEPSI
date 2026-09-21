@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { CalendarDays, Link, LogOut, MapPin, Navigation, Save, UsersRound } from "lucide-react";
+import { CalendarDays, Link, LogOut, MapPin, MessageCircle, Navigation, Save, Trash2, UsersRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { rupiah } from "@/lib/utils";
 
 export default function CrewDashboard() {
   const [jobs, setJobs] = useState([]);
@@ -67,6 +68,28 @@ export default function CrewDashboard() {
     }
   };
 
+  const deleteCompletedJob = async (assignmentId) => {
+    if (!window.confirm("Hapus job selesai ini dari ruang Crew?")) {
+      return;
+    }
+    const token = localStorage.getItem("sr_crew_token");
+    try {
+      await api.delete(`/crew/jobs/${assignmentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setJobs(jobs.filter((job) => job.assignment.id !== assignmentId));
+      toast.success("Job selesai dihapus dari ruang Crew.");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Job belum bisa dihapus.");
+    }
+  };
+
+  const whatsappUrl = (number) => {
+    const digits = (number || "").replace(/\D/g, "").replace(/^0/, "62");
+    const message = "Haii kak...✨ Perkenalkan aku dari tim SESI RESEPSI yang akan bertugas di acara kakak☺️🙏";
+    return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-50 to-rose-100 px-4 py-6 sm:px-6">
       <header className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 rounded-2xl p-5 glass-heavy">
@@ -93,13 +116,14 @@ export default function CrewDashboard() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {jobs.map(({ assignment, booking }) => (
+            {jobs.map(({ assignment, booking, team_fee }) => (
               <article key={assignment.id} className="rounded-2xl p-5 glass" data-testid={`crew-job-${assignment.id}`}>
                 <p className="text-xs font-semibold uppercase tracking-widest text-rose-600">{assignment.job_title}</p>
                 <h2 className="mt-1 font-serif-display text-2xl text-rose-950">{booking.name}</h2>
                 <p className="mt-2 flex items-center gap-2 text-sm text-rose-800"><CalendarDays size={16} /> {booking.event_date} • {booking.event_time}</p>
                 <p className="mt-2 flex items-start gap-2 text-sm text-rose-800"><MapPin size={16} className="mt-0.5 shrink-0" /> {booking.address}</p>
-                <p className="mt-2 text-sm text-rose-800">WhatsApp client: {booking.whatsapp}</p>
+                <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800" data-testid={`crew-job-fee-${assignment.id}`}>Fee tim job ini: <b>{rupiah(team_fee)}</b></p>
+                <a href={whatsappUrl(booking.whatsapp)} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 underline" data-testid={`crew-job-whatsapp-${assignment.id}`}><MessageCircle size={15} /> Chat client di WhatsApp</a>
                 {assignment.notes && <p className="mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{assignment.notes}</p>}
                 {booking.maps_link && (
                   <a href={booking.maps_link} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-rose-600 underline" data-testid={`crew-job-map-${assignment.id}`}><Navigation size={15} /> Buka lokasi</a>
@@ -120,6 +144,9 @@ export default function CrewDashboard() {
                     {[{ value: "pending", label: "BELUM SELESAI" }, { value: "completed", label: "SUDAH SELESAI" }].map((option) => <button key={option.value} type="button" onClick={() => updateWorkDraft(assignment.id, "work_status", option.value)} className={`rounded-full px-3 py-2 text-xs font-semibold ${workDrafts[assignment.id]?.work_status === option.value ? "bg-rose-600 text-white" : "bg-white/75 text-rose-700"}`} data-testid={`crew-work-status-${option.value}-${assignment.id}`}>{option.label}</button>)}
                   </div>
                   <button type="button" onClick={() => saveWork(assignment.id)} className="mt-3 inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white" data-testid={`crew-save-work-${assignment.id}`}><Save size={15} /> Simpan update</button>
+                  {workDrafts[assignment.id]?.work_status === "completed" && (
+                    <button type="button" onClick={() => deleteCompletedJob(assignment.id)} className="mt-3 ml-2 inline-flex items-center gap-2 rounded-full bg-rose-100 px-4 py-2 text-sm font-semibold text-rose-700" data-testid={`crew-delete-completed-${assignment.id}`}><Trash2 size={15} /> Hapus job selesai</button>
+                  )}
                 </div>
               </article>
             ))}

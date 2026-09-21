@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LogOut, Plus, Trash2, Edit, Save, Package as Pkg, Sparkles, Calendar, Star, Film, Users, ExternalLink, CreditCard, Download, UserRoundCog } from "lucide-react";
+import { LogOut, Plus, Trash2, Edit, Save, Package as Pkg, Sparkles, Calendar, Star, Film, Users, ExternalLink, CreditCard, Download, UserRoundCog, MessageCircle, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { api, fileUrl } from "@/lib/api";
 import { rupiah } from "@/lib/utils";
@@ -10,6 +10,7 @@ import TeamManager from "@/components/TeamManager";
 import CrewManager from "@/components/CrewManager";
 import PaymentManager from "@/components/PaymentManager";
 import BookingAssignmentsModal from "@/components/BookingAssignmentsModal";
+import FinanceDashboard from "@/components/FinanceDashboard";
 
 const TABS = [
   { id: "bookings", label: "Bookings", icon: Users },
@@ -19,6 +20,7 @@ const TABS = [
   { id: "team", label: "Tim", icon: Users },
   { id: "crew", label: "Crew", icon: UserRoundCog },
   { id: "payments", label: "Pembayaran", icon: CreditCard },
+  { id: "finance", label: "Finance", icon: WalletCards },
   { id: "portfolio", label: "Portfolio", icon: Film },
   { id: "testimonials", label: "Testimoni", icon: Star },
 ];
@@ -90,9 +92,10 @@ const AdminDashboard = () => {
           {tab === "calendar" && <CalendarTab availability={availability} reload={loadAll} />}
           {tab === "packages" && <PackagesTab items={packages} reload={loadAll} />}
           {tab === "additionals" && <AdditionalsTab items={additionals} reload={loadAll} />}
-          {tab === "team" && <TeamManager members={teamMembers} reload={loadAll} />}
+          {tab === "team" && <TeamManager members={teamMembers} bookings={bookings} reload={loadAll} />}
           {tab === "crew" && <CrewManager members={teamMembers} />}
           {tab === "payments" && <PaymentManager />}
+          {tab === "finance" && <FinanceDashboard />}
           {tab === "portfolio" && <PortfolioTab items={portfolio} reload={loadAll} />}
           {tab === "testimonials" && <TestimonialsTab items={testimonials} reload={loadAll} />}
         </motion.div>
@@ -108,7 +111,7 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
   const [query, setQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
-  const [workDrafts, setWorkDrafts] = useState({});
+  const [crewFilter, setCrewFilter] = useState("");
   const del = async (id) => {
     if (!window.confirm("Hapus booking ini?")) return;
     await api.delete(`/bookings/${id}`); toast.success("Deleted"); reload();
@@ -143,15 +146,10 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
       toast.error(error.response?.data?.detail || "Invoice belum bisa diunduh.");
     }
   };
-  const updateWorkDrive = async (booking) => {
-    try {
-      const workDriveUrl = workDrafts[booking.id] ?? booking.work_drive_url ?? "";
-      await api.patch(`/bookings/${booking.id}/work`, { work_drive_url: workDriveUrl });
-      toast.success("Link hasil kerja tersimpan.");
-      reload();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Link hasil belum bisa disimpan.");
-    }
+  const whatsappUrl = (number) => {
+    const digits = (number || "").replace(/\D/g, "").replace(/^0/, "62");
+    const message = "Haii kak...✨ Perkenalkan aku dari tim SESI RESEPSI yang akan bertugas di acara kakak☺️🙏";
+    return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
   };
   const filteredBookings = bookings.filter((booking) => {
     const completionMatches = bookingSpace === "archive"
@@ -160,7 +158,10 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
     const queryMatches = `${booking.name} ${booking.event_date}`.toLowerCase().includes(query.toLowerCase());
     const dateMatches = !selectedDate || booking.event_date === selectedDate;
     const monthMatches = !selectedMonth || booking.event_date.startsWith(selectedMonth);
-    return completionMatches && queryMatches && dateMatches && monthMatches;
+    const crewMatches = !crewFilter || booking.assigned_crew?.some(
+      (crew) => crew.member_id === crewFilter,
+    );
+    return completionMatches && queryMatches && dateMatches && monthMatches && crewMatches;
   });
   const activeCount = bookings.filter((booking) => booking.status !== "completed").length;
   const archiveCount = bookings.filter((booking) => booking.status === "completed").length;
@@ -179,12 +180,16 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
           <Plus size={16} /> Tambah booking
         </button>
       </div>
-      <div className="grid gap-3 rounded-2xl p-4 glass sm:grid-cols-[auto_auto_1fr_auto_auto]" data-testid="bookings-filter-bar">
+      <div className="grid gap-3 rounded-2xl p-4 glass sm:grid-cols-[auto_auto_1fr_auto_auto_auto]" data-testid="bookings-filter-bar">
         <button type="button" onClick={() => setBookingSpace("active")} className={`rounded-full px-4 py-2 text-sm font-semibold ${bookingSpace === "active" ? "bg-rose-600 text-white" : "bg-white/75 text-rose-800"}`} data-testid="bookings-active-space">Belum Selesai ({activeCount})</button>
         <button type="button" onClick={() => setBookingSpace("archive")} className={`rounded-full px-4 py-2 text-sm font-semibold ${bookingSpace === "archive" ? "bg-emerald-600 text-white" : "bg-white/75 text-rose-800"}`} data-testid="bookings-archive-space">Arsip Selesai ({archiveCount})</button>
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama client atau tanggal" className="rounded-xl border border-rose-200 bg-white/75 px-3 py-2 text-sm" data-testid="bookings-search-input" />
         <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="rounded-xl border border-rose-200 bg-white/75 px-3 py-2 text-sm" data-testid="bookings-date-filter" />
         <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="rounded-xl border border-rose-200 bg-white/75 px-3 py-2 text-sm" data-testid="bookings-month-filter" />
+        <select value={crewFilter} onChange={(event) => setCrewFilter(event.target.value)} className="rounded-xl border border-rose-200 bg-white/75 px-3 py-2 text-sm" data-testid="bookings-crew-filter">
+          <option value="">Semua Crew</option>
+          {teamMembers.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+        </select>
       </div>
       {filteredBookings.length === 0 && <div className="glass rounded-2xl p-8 text-center text-rose-700">Tidak ada client pada ruang ini</div>}
       {filteredBookings.map((b) => (
@@ -192,7 +197,8 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
           <div className="flex justify-between flex-wrap gap-2">
             <div>
               <div className="font-serif-display text-xl text-rose-950">{b.name} — {b.event_type}</div>
-              <div className="text-sm text-rose-700">📅 {b.event_date} • {b.event_time} • 📱 {b.whatsapp}</div>
+              <div className="text-sm text-rose-700">📅 {b.event_date} • {b.event_time}</div>
+              <a href={whatsappUrl(b.whatsapp)} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 underline" data-testid={`booking-whatsapp-${b.id}`}><MessageCircle size={14} /> {b.whatsapp}</a>
               <div className="text-sm text-rose-800 mt-1">📍 {b.address}</div>
               {b.maps_link && <a href={b.maps_link} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-rose-600 underline" data-testid={`booking-maps-link-${b.id}`}><ExternalLink size={12} /> Buka lokasi di Google Maps</a>}
             </div>
@@ -206,6 +212,7 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
             <div className="rounded-xl bg-white/60 p-3">
               <b>Paket:</b> {b.package_name} — {rupiah(b.package_price)}<br/>
               <b>Jarak:</b> {b.distance_km} km • Transport: {rupiah(b.transport_cost)}<br/>
+              {b.weekday_fee > 0 && <><b>Tambahan hari kerja:</b> {rupiah(b.weekday_fee)}<br/></>}
               <b>Additional:</b> {b.additionals?.map(a => `${a.name} x${a.qty}`).join(", ") || "-"}<br/>
               <b>Total:</b> <span className="text-rose-700 font-bold">{rupiah(b.total_price)}</span><br/>
               <b>Pembayaran:</b> {b.payment_type.toUpperCase()} — {rupiah(b.payment_amount)}
@@ -219,6 +226,19 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
               ) : <div className="italic text-rose-600 mt-1">Tidak ada</div>}
               {b.notes && <div className="mt-2"><b>Catatan:</b> {b.notes}</div>}
             </div>
+          </div>
+          <div className="mt-4 border-t border-rose-100 pt-4" data-testid={`booking-assigned-crew-${b.id}`}>
+            <p className="text-xs font-semibold uppercase tracking-widest text-rose-600">Crew yang bertugas</p>
+            {b.assigned_crew?.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {b.assigned_crew.map((crew) => (
+                  <div key={crew.member_id} className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-900">
+                    <b>{crew.name}</b> • {crew.job_title} • {crew.work_status === "completed" ? "SUDAH SELESAI" : "BELUM SELESAI"}
+                    {crew.work_drive_url && <a href={crew.work_drive_url} target="_blank" rel="noreferrer" className="ml-2 font-semibold text-rose-600 underline" data-testid={`booking-crew-work-link-${b.id}-${crew.member_id}`}>Drive</a>}
+                  </div>
+                ))}
+              </div>
+            ) : <p className="mt-2 text-sm text-rose-700">Belum ada Crew ditugaskan.</p>}
           </div>
           <div className="mt-4 border-t border-rose-100 pt-4" data-testid={`booking-completion-${b.id}`}>
             <p className="text-xs font-semibold uppercase tracking-widest text-rose-600">
@@ -249,14 +269,6 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
               >
                 Sudah Selesai
               </button>
-            </div>
-          </div>
-          <div className="mt-4 border-t border-rose-100 pt-4" data-testid={`booking-work-drive-${b.id}`}>
-            <p className="text-xs font-semibold uppercase tracking-widest text-rose-600">Hasil kerja Google Drive</p>
-            {b.work_drive_url && <a href={b.work_drive_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-rose-600 underline" data-testid={`booking-work-drive-link-${b.id}`}><ExternalLink size={14} /> Buka hasil kerja</a>}
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-              <input value={workDrafts[b.id] ?? b.work_drive_url ?? ""} onChange={(event) => setWorkDrafts({ ...workDrafts, [b.id]: event.target.value })} placeholder="Tempel link Google Drive hasil kerja" className="flex-1 rounded-xl border border-rose-200 bg-white/75 px-3 py-2 text-sm" data-testid={`booking-work-drive-input-${b.id}`} />
-              <button type="button" onClick={() => updateWorkDrive(b)} className="rounded-full bg-rose-100 px-4 py-2 text-sm font-semibold text-rose-700" data-testid={`booking-work-drive-save-${b.id}`}>Simpan link</button>
             </div>
           </div>
         </div>
