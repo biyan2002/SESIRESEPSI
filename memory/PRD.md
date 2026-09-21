@@ -93,7 +93,7 @@ dan permukaan glassmorphism.
   atau Sudah Selesai. Perubahan disimpan melalui endpoint admin yang tervalidasi.
 - Build frontend, kompilasi backend, uji API perubahan status, dan screenshot dashboard mobile
   berhasil; data booking sementara sudah dibersihkan.
-- Hero kini menggunakan tagline Wedding Content Creator & Photographer JABODETABEK.
+- Hero kini menggunakan tagline Wedding Content Creator & Photographer Jabodetabek.
 - Kalender kembali buka setiap hari tanpa status Tutup. Booking baru otomatis mengurangi slot pada
   tanggal acara; menghapus booking mengembalikan satu slot.
 - Form publik menerima username sosial media dan pilihan pop-up Instagram, TikTok, atau keduanya.
