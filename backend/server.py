@@ -766,8 +766,7 @@ async def list_bookings(username: str = Depends(verify_admin)):
     return docs
 
 
-@api_router.post("/bookings")
-async def create_booking(b: Booking):
+async def persist_booking(b: Booking, enforce_availability: bool) -> dict:
     booking_data = b.model_dump()
     transport_cost = calculate_transport_cost(b.distance_km, b.package_name)
     additionals_cost = sum(
@@ -779,13 +778,24 @@ async def create_booking(b: Booking):
     booking_data["total_price"] = b.package_price + additionals_cost + transport_cost
     booking_data["invoice_number"] = make_invoice_number(b.event_date)
     booking_data["invoice_token"] = uuid.uuid4().hex
-    await ensure_booking_date_available(b.event_date)
+    if enforce_availability:
+        await ensure_booking_date_available(b.event_date)
     await db.bookings.insert_one(booking_data)
     response_data = Booking(**booking_data).model_dump()
     response_data["invoice_url"] = (
         f"/api/invoices/{booking_data['id']}/download?token={booking_data['invoice_token']}"
     )
     return response_data
+
+
+@api_router.post("/bookings")
+async def create_booking(b: Booking):
+    return await persist_booking(b, enforce_availability=True)
+
+
+@api_router.post("/admin/bookings")
+async def create_admin_booking(b: Booking, username: str = Depends(verify_admin)):
+    return await persist_booking(b, enforce_availability=False)
 
 
 @api_router.delete("/bookings/{b_id}")
@@ -1006,6 +1016,15 @@ async def set_availability(a: Availability, username: str = Depends(verify_admin
         upsert=True,
     )
     return data
+
+
+@api_router.post("/availability/reset-all")
+async def reset_all_availability(username: str = Depends(verify_admin)):
+    await db.availability.update_many(
+        {},
+        {"$set": {"status": "available"}, "$unset": {"remaining_slots": ""}},
+    )
+    return {"ok": True}
 
 
 @api_router.delete("/availability/{date}")

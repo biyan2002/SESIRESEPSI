@@ -113,6 +113,11 @@ dan permukaan glassmorphism.
 - Regresi workflow booking, Drive Crew, isolasi akses Crew, archive, filter, dan invoice lulus 11/11
   tes backend; build frontend serta kompilasi backend juga berhasil.
 - Perbaikan kalender Available/Full diverifikasi independen: 9/9 tes backend dan seluruh UI lulus.
+- Admin booking manual memakai endpoint override sehingga dapat mencatat booking pada tanggal Full;
+  booking publik tetap ditolak saat tanggal berstatus Full.
+- Tombol Set semua Available pada kalender admin mereset seluruh tanggal tersimpan menjadi Available.
+- Reset kalender, override admin, pemblokiran client pada Full, build frontend, dan tampilan mobile
+  telah diuji; data booking sementara dibersihkan.
 
 ## Backlog Prioritas
 

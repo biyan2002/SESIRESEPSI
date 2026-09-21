@@ -117,7 +117,7 @@ const AdminBookingModal = ({ packages, additionals, onClose, onSaved }) => {
           };
         });
 
-      await api.post("/bookings", {
+      await api.post("/admin/bookings", {
         ...form,
         distance_km: distanceValue,
         package_id: packageId,

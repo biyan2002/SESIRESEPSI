@@ -294,11 +294,19 @@ const CalendarTab = ({ availability, reload }) => {
     await api.post("/availability", { date, status });
     reload();
   };
+  const resetAllAvailability = async () => {
+    await api.post("/availability/reset-all");
+    toast.success("Semua tanggal berhasil diatur Available.");
+    reload();
+  };
 
   const COLORS = { available: "bg-emerald-500", full: "bg-rose-600" };
   return (
     <div>
-      <h2 className="font-serif-display text-3xl text-rose-950 mb-4">Kelola Tanggal</h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-serif-display text-3xl text-rose-950">Kelola Tanggal</h2>
+        <button type="button" onClick={resetAllAvailability} className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white" data-testid="calendar-reset-all-available">Set semua Available</button>
+      </div>
       <div className="glass-heavy rounded-2xl p-6">
         <p className="mb-4 text-sm text-rose-800" data-testid="calendar-status-instruction">
           Tandai tanggal sebagai Available (hijau) atau Full (merah). Status ini langsung dipakai form booking.
