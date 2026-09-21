@@ -115,8 +115,6 @@ const BookingForm = ({ selectedPackage }) => {
       return toast.error("Lengkapi datanya dulu ya kak~");
     if (selectedDateStatus === "full")
       return toast.error("Yahh maaf banget ka, tanggal yang kakak pilih sudah full");
-    if (selectedDateStatus === "closed")
-      return toast.error("yah tanggal yang kaka pilih kami tutup ka");
     if (paymentType === "dp" && dpAmount < 50000)
       return toast.error("Minimal DP Rp 50.000 ya");
     if (manualDistance === "" || Number(manualDistance) < 0)
@@ -243,11 +241,6 @@ const BookingForm = ({ selectedPackage }) => {
       {selectedDateStatus === "full" && (
         <p className="rounded-xl bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-800" data-testid="bf-availability-message">
           Yahh maaf banget ka, tanggal yang kakak pilih sudah full
-        </p>
-      )}
-      {selectedDateStatus === "closed" && (
-        <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700" data-testid="bf-availability-message">
-          yah tanggal yang kaka pilih kami tutup ka
         </p>
       )}
       {selectedDateStatus === "limited" && (

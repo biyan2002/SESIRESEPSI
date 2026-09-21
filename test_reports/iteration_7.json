@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 7: Comprehensive backend + frontend E2E for hero tagline, calendar semantics, social modal, payment methods, invoice PDF, Crew RBAC, and Portfolio drive/photo. 8/8 backend tests PASS. 7/7 frontend UI checks PASS. Found and FIXED one MongoDB ObjectId leak in POST /api/crew-accounts response (dict-comprehension only stripped password_hash, not _id after insert_one mutation).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/crew-accounts (FIXED)",
+        "issue": "Response leaked MongoDB ObjectId _id causing FastAPI serialize_response 500. Motor's insert_one(data) mutates the dict in-place adding _id (ObjectId). The return dict-comprehension only filtered password_hash, so _id leaked into jsonable_encoder → TypeError('ObjectId' object is not iterable). Fixed by also excluding '_id' from the response dict."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration7_full.py",
+    "/app/test_reports/pytest/iter7.xml"
+  ],
+  "action_items": [
+    "None - all requested features verified end-to-end. Backend ObjectId leak already patched in server.py (create_crew_account)."
+  ],
+  "critical_code_review_comments": [
+    "server.py create_crew_account was returning insert_one-mutated dict without stripping _id — same anti-pattern could exist elsewhere; consider using async db helper that never returns Mongo docs directly and always serializes via Pydantic .model_dump().",
+    "BookingForm.jsx computes selectedDateStatus only from 'full' | 'limited' | otherwise 'available' — legacy 'closed' branch remains in JSX and toast, but no server response can produce 'closed' status any more (POST /availability normalizes to full/limited/available). Dead code can be removed by main agent.",
+    "Portfolio.jsx filter treats media_type=='photo' as photo and everything else as video (includes 'drive' and 'youtube' and 'upload'). Correct per spec since drive/youtube are video-like.",
+    "replace_booking_assignments returns response_records via [record.copy() for record in records] before insert_many — verified safe (shallow copy prevents _id leak).",
+    "Invoice download supports both token (public, per booking) and admin JWT paths; PDF is >1KB, application/pdf, unique SR- numbers verified."
+  ],
+  "updated_files": [
+    "/app/backend/server.py",
+    "/app/backend/tests/test_iteration7_full.py"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 pytest)",
+    "frontend": "100% (7/7 UI checks incl. mobile 390px crew login, exact availability strings, payment labels, social modal, portfolio filters)"
+  },
+  "test_credentials": "fikabisadimartyansyah@gmail.com / Biyan2026",
+  "seed_data_creation": "All TEST_ bookings, availability records (2027-05-01..03, 2027-06-10, 2027-07-01..02, 2027-08-01, 2027-11-11..12, 2027-09-09), crew accounts, assignments, and portfolio items created during tests are deleted at the end of their respective tests. Payment settings were only READ, never modified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with `python -m pytest backend/tests/test_iteration7_full.py -v -o addopts=''` to disable xdist parallelism which can create date collisions between TestAvailability and TestSocialAndPayment if dates overlap. All tests use future 2027-* dates for isolation. Admin cred is email form Biyan2026. Crew accounts must be created via admin API; there is no static crew credential.",
+  "rca of the issue": "Bug: POST /api/crew-accounts returned 500 Internal Server Error. Reproduction: create any crew account via admin API. RCA: In server.py create_crew_account, the code builds `data = {...}` dict, calls `await db.crew_accounts.insert_one(data)`, then returns `{k:v for k,v in data.items() if k != 'password_hash'}`. Motor/PyMongo's insert_one mutates the argument dict IN PLACE to add `_id: ObjectId(...)`. The filtered comprehension only excluded password_hash, so the ObjectId leaked into the response; FastAPI's jsonable_encoder cannot serialize ObjectId and fails with `TypeError('ObjectId' object is not iterable)`. Mitigation applied: change filter to `if key not in ('password_hash', '_id')`. Long-term: always serialize responses through Pydantic model_dump() or explicitly exclude _id in every Motor return path."
+}

@@ -93,6 +93,18 @@ dan permukaan glassmorphism.
   atau Sudah Selesai. Perubahan disimpan melalui endpoint admin yang tervalidasi.
 - Build frontend, kompilasi backend, uji API perubahan status, dan screenshot dashboard mobile
   berhasil; data booking sementara sudah dibersihkan.
+- Hero kini menggunakan tagline Wedding Content Creator & Photographer JABODETABEK.
+- Kalender kembali buka setiap hari tanpa status Tutup. Booking baru otomatis mengurangi slot pada
+  tanggal acara; menghapus booking mengembalikan satu slot.
+- Form publik menerima username sosial media dan pilihan pop-up Instagram, TikTok, atau keduanya.
+- Admin dapat mengatur transfer bank, e-wallet, dan QRIS; client memilih salah satu saat booking.
+- Sistem Crew ditambahkan: admin membuat akun, mengatur penugasan per booking, dan Crew hanya
+  dapat melihat job miliknya di ruang private terpisah.
+- Invoice PDF unik dibuat otomatis saat booking/DP, dapat diunduh client dengan token aman maupun
+  admin, dan telah diverifikasi secara visual dengan logo, warna pink, motif bunga, serta rincian.
+- Portfolio mendukung Google Drive dan filter tampilan Semua, Video, serta Foto.
+- Pengujian end-to-end fitur besar lulus 8/8 backend dan 7/7 UI; temuan ObjectId pada respons
+  pembuatan akun Crew diperbaiki dan data test dibersihkan.
 
 ## Backlog Prioritas
 

@@ -559,7 +559,7 @@ async def create_crew_account(
         "created_at": now_iso(),
     }
     await db.crew_accounts.insert_one(data)
-    return {key: value for key, value in data.items() if key != "password_hash"}
+    return {key: value for key, value in data.items() if key not in ("password_hash", "_id")}
 
 
 @api_router.put("/crew-accounts/{account_id}")
