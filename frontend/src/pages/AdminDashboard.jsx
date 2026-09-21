@@ -87,7 +87,7 @@ const AdminDashboard = () => {
       <main className="max-w-7xl mx-auto px-6 py-8">
         <motion.div key={tab} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {tab === "bookings" && <BookingsTab bookings={bookings} packages={packages} additionals={additionals} teamMembers={teamMembers} reload={loadAll} />}
-          {tab === "calendar" && <CalendarTab availability={availability} teamCount={teamMembers.length} reload={loadAll} />}
+          {tab === "calendar" && <CalendarTab availability={availability} reload={loadAll} />}
           {tab === "packages" && <PackagesTab items={packages} reload={loadAll} />}
           {tab === "additionals" && <AdditionalsTab items={additionals} reload={loadAll} />}
           {tab === "team" && <TeamManager members={teamMembers} reload={loadAll} />}
@@ -281,7 +281,7 @@ const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) =
   );
 };
 
-const CalendarTab = ({ availability, teamCount, reload }) => {
+const CalendarTab = ({ availability, reload }) => {
   const [month, setMonth] = useState(new Date());
   const y = month.getFullYear(); const m = month.getMonth();
   const firstDay = new Date(y, m, 1); const lastDay = new Date(y, m + 1, 0);
@@ -290,21 +290,18 @@ const CalendarTab = ({ availability, teamCount, reload }) => {
   for (let i = 0; i < startPad; i++) days.push(null);
   for (let d = 1; d <= lastDay.getDate(); d++) days.push(new Date(y, m, d));
 
-  const setRemainingSlots = async (date, value) => {
-    const payload = value === "closed"
-      ? { date, status: "closed" }
-      : { date, remaining_slots: Number(value) };
-    await api.post("/availability", payload);
+  const setAvailabilityStatus = async (date, status) => {
+    await api.post("/availability", { date, status });
     reload();
   };
 
-  const COLORS = { available: "bg-emerald-500", limited: "bg-amber-500", full: "bg-rose-600", closed: "bg-slate-400" };
+  const COLORS = { available: "bg-emerald-500", full: "bg-rose-600" };
   return (
     <div>
       <h2 className="font-serif-display text-3xl text-rose-950 mb-4">Kelola Tanggal</h2>
       <div className="glass-heavy rounded-2xl p-6">
-        <p className="mb-4 text-sm text-rose-800" data-testid="calendar-team-capacity">
-          Kapasitas maksimal per hari: <b>{teamCount} slot</b>, sesuai jumlah personel tim.
+        <p className="mb-4 text-sm text-rose-800" data-testid="calendar-status-instruction">
+          Tandai tanggal sebagai Available (hijau) atau Full (merah). Status ini langsung dipakai form booking.
         </p>
         <div className="flex justify-between mb-4">
           <button onClick={() => setMonth(new Date(y, m - 1, 1))} className="text-rose-700">← Prev</button>
@@ -319,26 +316,15 @@ const CalendarTab = ({ availability, teamCount, reload }) => {
             if (!d) return <div key={i} />;
             const iso = d.toISOString().slice(0,10);
             const record = availability[iso];
-            const status = record?.status === "full" || record?.status === "limited"
-              ? record.status
-              : "available";
-            const selectedSlots = String(record?.remaining_slots ?? teamCount);
+            const status = record?.status === "full" ? "full" : "available";
             return (
               <div key={i} className="rounded-xl border border-rose-200 p-2 text-center text-xs bg-white/60">
                 <div className="font-bold text-rose-950">{d.getDate()}</div>
                 <div className={`h-1 rounded-full my-1 ${status ? COLORS[status] : "bg-slate-200"}`} />
-                <select
-                  value={selectedSlots}
-                  onChange={(event) => setRemainingSlots(iso, event.target.value)}
-                  className="mt-1 w-full rounded bg-white px-1 py-1 text-[10px] text-rose-800"
-                  data-testid={`calendar-slots-${iso}`}
-                >
-                  {Array.from({ length: teamCount + 1 }, (_, slots) => (
-                    <option key={slots} value={slots}>
-                      {slots === 0 ? "Penuh" : `${slots} slot`}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-2 grid grid-cols-2 gap-1">
+                  <button type="button" onClick={() => setAvailabilityStatus(iso, "available")} className={`rounded px-1 py-1 text-[10px] font-semibold ${status === "available" ? "bg-emerald-500 text-white" : "bg-emerald-100 text-emerald-800"}`} data-testid={`calendar-available-${iso}`} aria-label={`Tandai ${iso} Available`}><span className="sm:hidden">A</span><span className="hidden sm:inline">Available</span></button>
+                  <button type="button" onClick={() => setAvailabilityStatus(iso, "full")} className={`rounded px-1 py-1 text-[10px] font-semibold ${status === "full" ? "bg-rose-600 text-white" : "bg-rose-100 text-rose-800"}`} data-testid={`calendar-full-${iso}`} aria-label={`Tandai ${iso} Full`}><span className="sm:hidden">F</span><span className="hidden sm:inline">Full</span></button>
+                </div>
               </div>
             );
           })}

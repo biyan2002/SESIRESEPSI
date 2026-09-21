@@ -6,16 +6,12 @@ import { NATIONAL_HOLIDAYS_2026 } from "@/lib/utils";
 
 const STATUS_COLORS = {
   available: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  limited: "bg-amber-100 text-amber-800 border-amber-300",
   full: "bg-rose-200 text-rose-900 border-rose-400",
-  closed: "bg-slate-100 text-slate-500 border-slate-200",
 };
 
 const STATUS_LABEL = {
-  available: "Kosong",
-  limited: "1 slot",
+  available: "Available",
   full: "Full",
-  closed: "Tutup",
 };
 
 const AvailabilityCalendar = () => {
@@ -45,16 +41,7 @@ const AvailabilityCalendar = () => {
     if (!d) return null;
     const iso = d.toISOString().slice(0, 10);
     if (statuses[iso]?.status === "full") return "full";
-    if (statuses[iso]?.status === "limited") return "limited";
     return "available";
-  };
-
-  const getStatusLabel = (status, record) => {
-    if (status === "available" && record?.remaining_slots > 1) {
-      return `${record.remaining_slots} slot`;
-    }
-
-    return STATUS_LABEL[status];
   };
 
   return (
@@ -110,7 +97,6 @@ const AvailabilityCalendar = () => {
               if (!d) return <div key={i} />;
               const s = getStatus(d);
               const iso = d.toISOString().slice(0, 10);
-              const record = statuses[iso];
               const isHoliday = NATIONAL_HOLIDAYS_2026.includes(iso);
               return (
                 <div
@@ -119,7 +105,7 @@ const AvailabilityCalendar = () => {
                   data-testid={`cal-day-${iso}`}
                 >
                   <span className="font-bold text-base">{d.getDate()}</span>
-                  <span className="text-[10px] leading-none">{getStatusLabel(s, record)}</span>
+                  <span className="text-[10px] leading-none">{STATUS_LABEL[s]}</span>
                   {isHoliday && <span className="text-[9px] text-rose-600">libur</span>}
                 </div>
               );

@@ -57,9 +57,7 @@ const BookingForm = ({ selectedPackage }) => {
   const selectedDateStatus = form.event_date
     ? availability[form.event_date]?.status === "full"
       ? "full"
-      : availability[form.event_date]?.status === "limited"
-        ? "limited"
-        : "available"
+      : "available"
     : "";
 
   const routeDistance = useMemo(() => {
@@ -241,11 +239,6 @@ const BookingForm = ({ selectedPackage }) => {
       {selectedDateStatus === "full" && (
         <p className="rounded-xl bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-800" data-testid="bf-availability-message">
           Yahh maaf banget ka, tanggal yang kakak pilih sudah full
-        </p>
-      )}
-      {selectedDateStatus === "limited" && (
-        <p className="rounded-xl bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-800" data-testid="bf-availability-message">
-          Tanggal ini slotnya tinggal dikit kak&lt; segera dikeep ya tanggalnya!
         </p>
       )}
       {selectedDateStatus === "available" && (

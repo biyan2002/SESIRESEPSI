@@ -221,8 +221,7 @@ class BookingWorkUpdate(BaseModel):
 class Availability(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     date: str
-    status: Optional[str] = None
-    remaining_slots: Optional[int] = None
+    status: Literal["available", "full"] = "available"
 
 
 class TeamMember(BaseModel):
@@ -491,22 +490,11 @@ async def team_capacity() -> int:
 def availability_status(remaining_slots: int) -> str:
     if remaining_slots <= 0:
         return "full"
-    if remaining_slots == 1:
-        return "limited"
     return "available"
 
 
 async def clamp_availability_to_team_capacity() -> None:
-    capacity = await team_capacity()
-    await db.availability.update_many(
-        {"remaining_slots": {"$gt": capacity}},
-        {
-            "$set": {
-                "remaining_slots": capacity,
-                "status": availability_status(capacity),
-            }
-        },
-    )
+    return None
 
 
 @api_router.get("/team")
@@ -779,39 +767,10 @@ def calculate_transport_cost(distance_km: float, package_name: str) -> int:
     return math.ceil(distance_km - free_radius) * 5000
 
 
-async def reserve_booking_slot(event_date: str) -> dict:
-    capacity = await team_capacity()
+async def ensure_booking_date_available(event_date: str) -> None:
     current = await db.availability.find_one({"date": event_date}, {"_id": 0})
-    remaining_slots = current.get("remaining_slots", capacity) if current else capacity
-
-    if remaining_slots <= 0:
+    if current and current.get("status") == "full":
         raise HTTPException(status_code=409, detail="Tanggal yang dipilih sudah penuh")
-
-    updated_slots = remaining_slots - 1
-    data = {
-        "date": event_date,
-        "remaining_slots": updated_slots,
-        "status": availability_status(updated_slots),
-    }
-    await db.availability.update_one({"date": event_date}, {"$set": data}, upsert=True)
-    return data
-
-
-async def release_booking_slot(event_date: str) -> None:
-    capacity = await team_capacity()
-    current = await db.availability.find_one({"date": event_date}, {"_id": 0})
-    if not current:
-        return
-    remaining_slots = min(current.get("remaining_slots", 0) + 1, capacity)
-    await db.availability.update_one(
-        {"date": event_date},
-        {
-            "$set": {
-                "remaining_slots": remaining_slots,
-                "status": availability_status(remaining_slots),
-            }
-        },
-    )
 
 
 @api_router.get("/bookings")
@@ -835,7 +794,7 @@ async def create_booking(b: Booking):
     booking_data["total_price"] = b.package_price + additionals_cost + transport_cost
     booking_data["invoice_number"] = make_invoice_number(b.event_date)
     booking_data["invoice_token"] = uuid.uuid4().hex
-    await reserve_booking_slot(b.event_date)
+    await ensure_booking_date_available(b.event_date)
     await db.bookings.insert_one(booking_data)
     response_data = Booking(**booking_data).model_dump()
     response_data["invoice_url"] = (
@@ -849,7 +808,6 @@ async def delete_booking(b_id: str, username: str = Depends(verify_admin)):
     booking = await db.bookings.find_one({"id": b_id}, {"_id": 0})
     if booking:
         await db.bookings.delete_one({"id": b_id})
-        await release_booking_slot(booking["event_date"])
     return {"ok": True}
 
 
@@ -1044,36 +1002,24 @@ async def download_invoice(
 @api_router.get("/availability")
 async def list_availability():
     docs = await db.availability.find({}, {"_id": 0}).to_list(1000)
-    return docs
+    return [
+        {
+            "date": doc["date"],
+            "status": "full" if doc.get("status") == "full" else "available",
+        }
+        for doc in docs
+    ]
 
 
 @api_router.post("/availability")
 async def set_availability(a: Availability, username: str = Depends(verify_admin)):
-    capacity = await team_capacity()
-    slots = a.remaining_slots
+    data = {"date": a.date, "status": a.status}
 
-    if slots is None:
-        legacy_status = a.status or "available"
-        slots = {
-            "available": capacity,
-            "limited": min(1, capacity),
-            "full": 0,
-            "closed": capacity,
-        }.get(legacy_status)
-
-    if slots is None or slots < 0 or slots > capacity:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Sisa slot harus di antara 0 dan {capacity}.",
-        )
-
-    data = {
-        "date": a.date,
-        "status": availability_status(slots),
-        "remaining_slots": slots,
-    }
-
-    await db.availability.update_one({"date": a.date}, {"$set": data}, upsert=True)
+    await db.availability.update_one(
+        {"date": a.date},
+        {"$set": data, "$unset": {"remaining_slots": ""}},
+        upsert=True,
+    )
     return data
 
 
