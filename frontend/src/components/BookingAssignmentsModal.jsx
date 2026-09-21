@@ -32,6 +32,8 @@ const BookingAssignmentsModal = ({ booking, members, onClose, onSaved }) => {
         selected: checked,
         job_title: assignments[memberId]?.job_title || "Crew Acara",
         notes: assignments[memberId]?.notes || "",
+        work_drive_url: assignments[memberId]?.work_drive_url || "",
+        work_status: assignments[memberId]?.work_status || "pending",
       },
     });
   };

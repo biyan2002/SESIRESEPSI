@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 8: E2E backend+frontend for Admin Bookings archive/active split, filters (name/date/month), Booking work Drive URL, Crew workspace work-drive+status, cross-crew RBAC, assignment persistence via PUT, and invoice PDF header/size. 11/11 pytest PASS. All frontend testids present; mobile 390px scrollWidth==clientWidth (no overflow); filters correctly narrow/exclude bookings; archive space hides active row and vice versa; booking-work-drive input/save/link cycle works from UI.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "BookingAssignmentsModal.jsx toggleMember", "issues": ["When toggling a crew member checkbox off then back on, the local state drops previously-loaded work_drive_url and work_status because the toggle handler only restores selected/job_title/notes. If the admin saves after such a toggle, the crew's existing work fields would be overwritten with defaults (\"\"/pending). Not exercised in tests (payload retained values), but worth hardening."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration8_bookings_crew.py",
+    "/app/test_reports/pytest/iter8.xml"
+  ],
+  "action_items": [
+    "Consider hardening BookingAssignmentsModal.toggleMember to preserve work_drive_url/work_status when re-selecting a member (currently defaults them to \"\"/\"pending\" which would clobber saved crew work if admin re-saves without any explicit override)."
+  ],
+  "critical_code_review_comments": [
+    "server.py replace_booking_assignments deletes then re-inserts all assignments per PUT: any crew work_drive_url/work_status saved by crew is lost if admin re-saves without supplying it. Frontend modal DOES send work fields it read initially, so it works, but there is no server-side merge; a partial payload from any client would silently wipe crew work data. Consider server-side merge or reject-on-missing.",
+    "BookingWorkUpdate/Booking model allows arbitrary string for work_drive_url; no URL validation. Fine for MVP but a stricter Pydantic HttpUrl or regex would prevent bad links reaching Drive.",
+    "AdminDashboard BookingsTab uses `booking.event_date.startsWith(selectedMonth)` for month filter — correct for ISO YYYY-MM-DD strings.",
+    "Crew /crew/jobs endpoint scopes to account['member_id']; PATCH /crew/jobs/{aid}/work correctly requires both id AND crew_member_id match — cross-crew attempt returns 404 (verified)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration8_bookings_crew.py"
+  ],
+  "success_rate": {"backend": "100% (11/11 pytest)", "frontend": "100% (all testids present, filters + archive space + work-drive input/save/link + mobile 390px overflow verified)"},
+  "test_credentials": "Owner admin: fikabisadimartyansyah@gmail.com / Biyan2026. Ephemeral crew accounts created and deleted in test fixture.",
+  "seed_data_creation": "Created 2 TEST_ITER8 bookings (2027-03-15, 2027-04-20) + 1 UI-only booking (2027-05-20) and 2 ephemeral crew accounts (testcrewa_*, testcrewb_*). All deleted at end of test run. Availability slots for those dates were released via booking-delete side-effect (release_booking_slot).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: `python -m pytest backend/tests/test_iteration8_bookings_crew.py -v -o addopts=''`. Test file reads REACT_APP_BACKEND_URL from env then falls back to /app/frontend/.env. Admin login uses username=email form. Crew tests require at least 2 team members present (default seed OK). BookingAssignmentsModal.toggleMember has a latent bug: re-toggling drops work_drive_url/work_status from local state — verify if main agent patches it.",
+  "rca of the issue": "No new bugs introduced. Latent risk: replace_booking_assignments in server.py + toggleMember in BookingAssignmentsModal.jsx together mean re-saving assignments without a full payload could wipe crew-authored work_drive_url/work_status. Mitigation options: (1) server-side merge with existing crew_assignments by (booking_id, crew_member_id) preserving work_drive_url/work_status if not supplied; (2) in modal, when toggling on, look up prior assignment record to restore those fields."
+}

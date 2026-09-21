@@ -252,13 +252,15 @@ class CrewAssignmentInput(BaseModel):
     crew_member_id: str
     job_title: str = "Crew Acara"
     notes: str = ""
-    work_drive_url: str = ""
-    work_status: Literal["pending", "completed"] = "pending"
+    work_drive_url: Optional[str] = None
+    work_status: Optional[Literal["pending", "completed"]] = None
 
 
 class CrewAssignment(CrewAssignmentInput):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     booking_id: str
+    work_drive_url: str = ""
+    work_status: Literal["pending", "completed"] = "pending"
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -638,11 +640,23 @@ async def replace_booking_assignments(
     if member_count != len(set(member_ids)):
         raise HTTPException(status_code=422, detail="Ada personel tim yang tidak valid")
 
+    existing_assignments = await db.crew_assignments.find(
+        {"booking_id": booking_id},
+        {"_id": 0},
+    ).to_list(100)
+    existing_by_member = {
+        assignment["crew_member_id"]: assignment
+        for assignment in existing_assignments
+    }
+
     await db.crew_assignments.delete_many({"booking_id": booking_id})
-    records = [
-        CrewAssignment(booking_id=booking_id, **item.model_dump()).model_dump()
-        for item in batch.assignments
-    ]
+    records = []
+    for item in batch.assignments:
+        data = item.model_dump(exclude_none=True)
+        existing = existing_by_member.get(item.crew_member_id, {})
+        data.setdefault("work_drive_url", existing.get("work_drive_url", ""))
+        data.setdefault("work_status", existing.get("work_status", "pending"))
+        records.append(CrewAssignment(booking_id=booking_id, **data).model_dump())
     response_records = [record.copy() for record in records]
     if records:
         await db.crew_assignments.insert_many(records)

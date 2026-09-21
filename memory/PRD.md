@@ -105,6 +105,15 @@ dan permukaan glassmorphism.
 - Portfolio mendukung Google Drive dan filter tampilan Semua, Video, serta Foto.
 - Pengujian end-to-end fitur besar lulus 8/8 backend dan 7/7 UI; temuan ObjectId pada respons
   pembuatan akun Crew diperbaiki dan data test dibersihkan.
+- Ruang Bookings admin kini dipisah menjadi Client Belum Selesai dan Arsip Selesai. Status selesai
+  memindahkan client otomatis ke arsip; admin dapat mencari berdasarkan nama, tanggal, atau bulan.
+- Booking memiliki link Google Drive hasil kerja. Setiap Crew juga dapat menyimpan link hasil Drive
+  dan progres BELUM SELESAI atau SUDAH SELESAI pada job yang memang ditugaskan kepadanya.
+- Link dan progres hasil Crew dipertahankan saat admin menyimpan ulang penugasan; backend melakukan
+  merge aman untuk mencegah data Crew terhapus tidak sengaja.
+- Logo invoice kini berada dalam bidang maroon berkontras tinggi agar jelas di atas latar pink.
+- Regresi workflow booking, Drive Crew, isolasi akses Crew, archive, filter, dan invoice lulus 11/11
+  tes backend; build frontend serta kompilasi backend juga berhasil.
 
 ## Backlog Prioritas
 
