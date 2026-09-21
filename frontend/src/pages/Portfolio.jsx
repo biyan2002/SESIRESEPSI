@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Play, Calendar as CalIcon, Heart } from "lucide-react";
@@ -14,8 +14,18 @@ const getYouTubeEmbed = (url) => {
 const Portfolio = () => {
   const [items, setItems] = useState([]);
   const [active, setActive] = useState(null);
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => { api.get("/portfolio").then((r) => setItems(r.data)); }, []);
+  const visibleItems = useMemo(() => {
+    if (filter === "photo") return items.filter((item) => item.media_type === "photo");
+    if (filter === "video") return items.filter((item) => item.media_type !== "photo");
+    return items;
+  }, [filter, items]);
+  const getDrivePreview = (url) => {
+    const match = url.match(/\/d\/([^/]+)/);
+    return match ? `https://drive.google.com/file/d/${match[1]}/preview` : url;
+  };
 
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-pink-50 via-rose-50 to-pink-100 overflow-hidden">
@@ -40,6 +50,9 @@ const Portfolio = () => {
           <p className="mt-4 text-rose-800/70">
             Kumpulan cinematic moment yang udah kami handle 💐
           </p>
+          <div className="mt-6 inline-flex rounded-full border border-rose-200 bg-white/60 p-1" data-testid="portfolio-filter-tabs">
+            {[{ value: "all", label: "Semua" }, { value: "video", label: "Video" }, { value: "photo", label: "Foto" }].map((item) => <button key={item.value} type="button" onClick={() => setFilter(item.value)} className={`rounded-full px-4 py-2 text-sm font-semibold ${filter === item.value ? "bg-rose-600 text-white" : "text-rose-800"}`} data-testid={`portfolio-filter-${item.value}`}>{item.label}</button>)}
+          </div>
         </motion.div>
 
         {items.length === 0 && (
@@ -49,7 +62,7 @@ const Portfolio = () => {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((v, i) => (
+          {visibleItems.map((v, i) => (
             <motion.div
               key={v.id}
               initial={{ opacity: 0, y: 40 }}
@@ -68,6 +81,8 @@ const Portfolio = () => {
                     className="w-full h-full object-cover"
                     data-testid={`portfolio-photo-${v.id}`}
                   />
+                ) : v.media_type === "drive" ? (
+                  <div className="flex h-full items-center justify-center bg-rose-100 text-center text-sm font-semibold text-rose-700">Google Drive<br />Portfolio</div>
                 ) : v.media_type === "youtube" ? (
                   <img src={`https://img.youtube.com/vi/${(v.youtube_url.match(/(?:youtu\.be\/|v=|shorts\/)([\w-]{11})/) || [])[1]}/hqdefault.jpg`}
                     alt={v.title} className="w-full h-full object-cover" />
@@ -106,6 +121,8 @@ const Portfolio = () => {
                   className="w-full h-full object-contain"
                   data-testid="portfolio-active-photo"
                 />
+              ) : active.media_type === "drive" ? (
+                <iframe src={getDrivePreview(active.drive_url)} title={active.title} className="h-full w-full" allow="autoplay" data-testid="portfolio-drive-preview" />
               ) : active.media_type === "youtube" ? (
                 <iframe src={getYouTubeEmbed(active.youtube_url)} className="w-full h-full" allowFullScreen />
               ) : (

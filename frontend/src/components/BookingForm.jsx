@@ -1,19 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Copy, Upload, MapPin, ExternalLink, Minus, Plus } from "lucide-react";
-import { api } from "@/lib/api";
-import { isWeekendOrHoliday, rupiah } from "@/lib/utils";
-
-const BANKS = [
-  { name: "BSI", holder: "FIKABI SA'DI MARTYANSYAH", num: "7310404173" },
-  { name: "Seabank", holder: "CASTI RAHAYU", num: "901820850811" },
-];
+import { Copy, Upload, MapPin, ExternalLink, Minus, Plus, X } from "lucide-react";
+import { api, fileUrl } from "@/lib/api";
+import { rupiah } from "@/lib/utils";
 
 const BookingForm = ({ selectedPackage }) => {
   const [pkgs, setPkgs] = useState([]);
   const [adds, setAdds] = useState([]);
   const [availability, setAvailability] = useState({});
+  const [paymentSettings, setPaymentSettings] = useState({
+    bank_accounts: [],
+    ewallet_accounts: [],
+    qris_image_path: "",
+  });
   const [selectedAdds, setSelectedAdds] = useState({});
   const [pkgId, setPkgId] = useState("");
   const [form, setForm] = useState({
@@ -22,15 +22,21 @@ const BookingForm = ({ selectedPackage }) => {
   });
   const [manualDistance, setManualDistance] = useState("");
   const [paymentType, setPaymentType] = useState("dp");
+  const [paymentMethod, setPaymentMethod] = useState("bank");
   const [dpChoice, setDpChoice] = useState("50000");
   const [customDp, setCustomDp] = useState("");
   const [proofFile, setProofFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [invoiceUrl, setInvoiceUrl] = useState("");
+  const [socialModalOpen, setSocialModalOpen] = useState(false);
+  const [socialUsername, setSocialUsername] = useState("");
+  const [socialPlatforms, setSocialPlatforms] = useState([]);
 
   useEffect(() => {
     api.get("/packages").then((r) => setPkgs(r.data));
     api.get("/additionals").then((r) => setAdds(r.data));
+    api.get("/payment-settings").then((response) => setPaymentSettings(response.data));
     api.get("/availability").then((response) => {
       const availabilityByDate = {};
 
@@ -49,9 +55,11 @@ const BookingForm = ({ selectedPackage }) => {
   const pkg = pkgs.find((p) => p.id === pkgId);
   const transportRadius = pkg?.name?.trim().toLowerCase() === "premium" ? 30 : 10;
   const selectedDateStatus = form.event_date
-    ? isWeekendOrHoliday(form.event_date)
-      ? availability[form.event_date]?.status || "available"
-      : "closed"
+    ? availability[form.event_date]?.status === "full"
+      ? "full"
+      : availability[form.event_date]?.status === "limited"
+        ? "limited"
+        : "available"
     : "";
 
   const routeDistance = useMemo(() => {
@@ -131,7 +139,7 @@ const BookingForm = ({ selectedPackage }) => {
           return { id, name: a.name, price: a.price, unit: a.unit, qty, subtotal: a.price * qty };
         });
 
-      await api.post("/bookings", {
+      const bookingResponse = await api.post("/bookings", {
         ...form,
         distance_km: routeDistance,
         package_id: pkgId,
@@ -143,7 +151,11 @@ const BookingForm = ({ selectedPackage }) => {
         payment_type: paymentType,
         payment_amount: dpAmount,
         payment_proof_path: up.data.path,
+        payment_method: paymentMethod,
+        social_username: socialUsername,
+        social_platforms: socialPlatforms,
       });
+      setInvoiceUrl(bookingResponse.data.invoice_url || "");
       setDone(true);
       toast.success("Booking berhasil masuk! 💕");
     } catch (e) {
@@ -161,6 +173,15 @@ const BookingForm = ({ selectedPackage }) => {
           Kami udah nerima booking kamu ya kak. Buat konfirmasi jadwal & detail acara,
           langsung <b>chat admin</b> di pojok kanan bawah biar cepet diproses ✨
         </p>
+        {invoiceUrl && (
+          <a
+            href={`${process.env.REACT_APP_BACKEND_URL}${invoiceUrl}`}
+            className="mb-3 inline-flex rounded-full bg-rose-100 px-6 py-3 font-semibold text-rose-800"
+            data-testid="booking-download-invoice"
+          >
+            Download Invoice
+          </a>
+        )}
         <button
           onClick={() => window.location.reload()}
           className="rounded-full bg-rose-600 hover:bg-rose-700 text-white px-6 py-3"
@@ -202,6 +223,21 @@ const BookingForm = ({ selectedPackage }) => {
           className="rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-address" />
         <input placeholder="Tulis link Google Mapsnya ya kak" value={form.maps_link} onChange={(e) => setForm({ ...form, maps_link: e.target.value })}
           className="md:col-span-2 rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500" data-testid="bf-venue-maps" />
+        <input
+          placeholder="Username social media kamu"
+          value={socialUsername}
+          onChange={(e) => setSocialUsername(e.target.value)}
+          className="rounded-xl bg-white/70 px-4 py-3 border border-rose-200 outline-none focus:border-rose-500"
+          data-testid="bf-social-username"
+        />
+        <button
+          type="button"
+          onClick={() => setSocialModalOpen(true)}
+          className="rounded-xl border border-rose-200 bg-white/70 px-4 py-3 text-left text-sm font-semibold text-rose-800"
+          data-testid="bf-social-platform-button"
+        >
+          {socialPlatforms.length > 0 ? socialPlatforms.join(" + ") : "Pilih Instagram / TikTok"}
+        </button>
       </div>
 
       {selectedDateStatus === "full" && (
@@ -216,12 +252,12 @@ const BookingForm = ({ selectedPackage }) => {
       )}
       {selectedDateStatus === "limited" && (
         <p className="rounded-xl bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-800" data-testid="bf-availability-message">
-          Waduh tanggal ini sisa 1 slot lagi ka, segera keep tanggalnya yaa!!!
+          Tanggal ini slotnya tinggal dikit kak&lt; segera dikeep ya tanggalnya!
         </p>
       )}
       {selectedDateStatus === "available" && (
         <p className="rounded-xl bg-emerald-100 px-4 py-3 text-sm font-semibold text-emerald-800" data-testid="bf-availability-message">
-          Selamat kak, tanggal yang kakak pilih masih avail
+          Selamat, tanggal yang kakak pilih masih tersedia, silahkan di keep dulu ya!
         </p>
       )}
 
@@ -399,22 +435,53 @@ const BookingForm = ({ selectedPackage }) => {
         <div className="mt-2 text-sm text-rose-800">Bayar: <b>{rupiah(dpAmount)}</b></div>
       </div>
 
-      {/* Bank */}
-      <div className="grid md:grid-cols-2 gap-3">
-        {BANKS.map((b) => (
-          <div key={b.name} className="rounded-2xl bg-white/70 border border-rose-200 p-4">
-            <div className="text-xs text-rose-600 uppercase tracking-widest font-semibold">{b.name}</div>
-            <div className="mt-1 font-semibold text-rose-950 text-sm">{b.holder}</div>
-            <div className="flex items-center justify-between mt-2">
-              <div className="font-mono text-lg text-rose-800">{b.num}</div>
-              <button onClick={() => copyText(b.num)} className="rounded-full p-2 hover:bg-rose-100 text-rose-700"
-                data-testid={`bf-copy-${b.name.toLowerCase()}`}>
-                <Copy size={16} />
-              </button>
-            </div>
-          </div>
-        ))}
+      <div>
+        <label className="text-sm text-rose-700 font-semibold uppercase tracking-widest">Cara Bayar</label>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {[
+            { value: "bank", label: "TRANSFER BANK" },
+            { value: "ewallet", label: "E-WALLET" },
+            { value: "qris", label: "QRIS" },
+          ].map((method) => (
+            <button
+              key={method.value}
+              type="button"
+              onClick={() => setPaymentMethod(method.value)}
+              className={`rounded-xl px-2 py-3 text-xs font-semibold ${
+                paymentMethod === method.value
+                  ? "bg-rose-600 text-white"
+                  : "border border-rose-200 bg-white/60 text-rose-900"
+              }`}
+              data-testid={`bf-payment-method-${method.value}`}
+            >
+              {method.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {paymentMethod !== "qris" && (
+        <div className="grid gap-3 md:grid-cols-2" data-testid="bf-payment-accounts">
+          {(paymentMethod === "bank" ? paymentSettings.bank_accounts : paymentSettings.ewallet_accounts).map((account) => (
+            <div key={account.id} className="rounded-2xl border border-rose-200 bg-white/70 p-4">
+              <div className="text-xs font-semibold uppercase tracking-widest text-rose-600">{account.label}</div>
+              <div className="mt-1 text-sm font-semibold text-rose-950">{account.holder}</div>
+              <div className="mt-2 flex items-center justify-between">
+                <div className="font-mono text-lg text-rose-800">{account.number}</div>
+                <button onClick={() => copyText(account.number)} className="rounded-full p-2 text-rose-700 hover:bg-rose-100" data-testid={`bf-copy-${account.id}`} aria-label={`Salin ${account.label}`}><Copy size={16} /></button>
+              </div>
+            </div>
+          ))}
+          {paymentMethod === "ewallet" && paymentSettings.ewallet_accounts.length === 0 && (
+            <p className="text-sm text-rose-700">E-Wallet belum tersedia. Pilih metode lain ya kak.</p>
+          )}
+        </div>
+      )}
+      {paymentMethod === "qris" && (
+        <div className="rounded-2xl border border-rose-200 bg-white/70 p-4 text-center" data-testid="bf-qris-payment">
+          {paymentSettings.qris_image_path ? <img src={fileUrl(paymentSettings.qris_image_path)} alt="QRIS SESI RESEPSI" className="mx-auto max-h-64 rounded-xl object-contain" /> : <p className="text-sm text-rose-700">QRIS belum diatur oleh admin.</p>}
+        </div>
+      )}
 
       <label className="flex items-center gap-2 cursor-pointer text-rose-800 rounded-xl bg-white/60 border border-rose-200 p-3">
         <Upload size={18} />
@@ -428,6 +495,16 @@ const BookingForm = ({ selectedPackage }) => {
         data-testid="bf-submit">
         {submitting ? "Mengirim..." : "💌 Confirm Booking"}
       </button>
+      {socialModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-end bg-rose-950/40 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setSocialModalOpen(false)} data-testid="bf-social-modal-backdrop">
+          <div className="w-full max-w-sm rounded-t-3xl p-6 glass-heavy sm:rounded-3xl" onClick={(event) => event.stopPropagation()} data-testid="bf-social-modal">
+            <div className="flex items-center justify-between"><h4 className="font-serif-display text-2xl text-rose-950">Pilih sosial media</h4><button type="button" onClick={() => setSocialModalOpen(false)} className="rounded-full p-2 text-rose-700" data-testid="bf-social-modal-close" aria-label="Tutup pilihan sosial media"><X size={18} /></button></div>
+            <div className="mt-4 grid gap-2">
+              {["Instagram", "TikTok", "Instagram + TikTok"].map((option) => <button key={option} type="button" onClick={() => { setSocialPlatforms(option.split(" + ")); setSocialModalOpen(false); }} className="rounded-xl border border-rose-200 bg-white/70 px-4 py-3 text-left font-semibold text-rose-900" data-testid={`bf-social-option-${option.toLowerCase().replace(/[^a-z]+/g, "-")}`}>{option}</button>)}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

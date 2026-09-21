@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Instagram, Music2, Lock } from "lucide-react";
+import { Instagram, Music2, Lock, UsersRound } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -32,13 +32,18 @@ const Footer = () => {
           </a>
         </div>
         <div className="mt-10 text-xs text-rose-700/70">
-          © {new Date().getFullYear()} SESI RESEPSI — Wedding Content Creator Jakarta-Bekasi
+          © {new Date().getFullYear()} SESI RESEPSI — Wedding Content Creator & Photographer JABODETABEK
         </div>
-        <div className="mt-6">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link to="/admin/login"
             className="inline-flex items-center gap-2 text-xs text-rose-800/60 hover:text-rose-900 border border-rose-200 rounded-full px-4 py-2 hover:bg-white/60 transition-colors"
             data-testid="admin-login-link">
             <Lock size={12} /> Masuk sebagai Admin
+          </Link>
+          <Link to="/crew/login"
+            className="inline-flex items-center gap-2 text-xs text-rose-800/60 hover:text-rose-900 border border-rose-200 rounded-full px-4 py-2 hover:bg-white/60 transition-colors"
+            data-testid="crew-login-link">
+            <UsersRound size={12} /> Masuk sebagai Crew
           </Link>
         </div>
       </div>

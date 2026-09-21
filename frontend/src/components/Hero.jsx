@@ -55,7 +55,7 @@ const Hero = () => {
           className="mt-6 max-w-lg font-italiana text-2xl tracking-wide text-rose-900 md:text-4xl"
           data-testid="hero-tagline"
         >
-          Wedding Content Creator Jakarta-Bekasi
+          WEDDING CONTENT CREATOR & PHOTOGRAPHER JABODETABEK
         </motion.h2>
 
         <motion.p

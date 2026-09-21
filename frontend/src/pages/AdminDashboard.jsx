@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LogOut, Plus, Trash2, Edit, Save, Package as Pkg, Sparkles, Calendar, Star, Film, Users, ExternalLink } from "lucide-react";
+import { LogOut, Plus, Trash2, Edit, Save, Package as Pkg, Sparkles, Calendar, Star, Film, Users, ExternalLink, CreditCard, Download, UserRoundCog } from "lucide-react";
 import { toast } from "sonner";
 import { api, fileUrl } from "@/lib/api";
-import { isWeekendOrHoliday, rupiah } from "@/lib/utils";
+import { rupiah } from "@/lib/utils";
 import AdminBookingModal from "@/components/AdminBookingModal";
 import TeamManager from "@/components/TeamManager";
+import CrewManager from "@/components/CrewManager";
+import PaymentManager from "@/components/PaymentManager";
+import BookingAssignmentsModal from "@/components/BookingAssignmentsModal";
 
 const TABS = [
   { id: "bookings", label: "Bookings", icon: Users },
@@ -14,6 +17,8 @@ const TABS = [
   { id: "packages", label: "Paket", icon: Pkg },
   { id: "additionals", label: "Additional", icon: Sparkles },
   { id: "team", label: "Tim", icon: Users },
+  { id: "crew", label: "Crew", icon: UserRoundCog },
+  { id: "payments", label: "Pembayaran", icon: CreditCard },
   { id: "portfolio", label: "Portfolio", icon: Film },
   { id: "testimonials", label: "Testimoni", icon: Star },
 ];
@@ -81,11 +86,13 @@ const AdminDashboard = () => {
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         <motion.div key={tab} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          {tab === "bookings" && <BookingsTab bookings={bookings} packages={packages} additionals={additionals} reload={loadAll} />}
+          {tab === "bookings" && <BookingsTab bookings={bookings} packages={packages} additionals={additionals} teamMembers={teamMembers} reload={loadAll} />}
           {tab === "calendar" && <CalendarTab availability={availability} teamCount={teamMembers.length} reload={loadAll} />}
           {tab === "packages" && <PackagesTab items={packages} reload={loadAll} />}
           {tab === "additionals" && <AdditionalsTab items={additionals} reload={loadAll} />}
           {tab === "team" && <TeamManager members={teamMembers} reload={loadAll} />}
+          {tab === "crew" && <CrewManager members={teamMembers} />}
+          {tab === "payments" && <PaymentManager />}
           {tab === "portfolio" && <PortfolioTab items={portfolio} reload={loadAll} />}
           {tab === "testimonials" && <TestimonialsTab items={testimonials} reload={loadAll} />}
         </motion.div>
@@ -94,8 +101,9 @@ const AdminDashboard = () => {
   );
 };
 
-const BookingsTab = ({ bookings, packages, additionals, reload }) => {
+const BookingsTab = ({ bookings, packages, additionals, teamMembers, reload }) => {
   const [showAddBooking, setShowAddBooking] = useState(false);
+  const [assignmentBooking, setAssignmentBooking] = useState(null);
   const del = async (id) => {
     if (!window.confirm("Hapus booking ini?")) return;
     await api.delete(`/bookings/${id}`); toast.success("Deleted"); reload();
@@ -111,6 +119,23 @@ const BookingsTab = ({ bookings, packages, additionals, reload }) => {
       reload();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Status booking belum bisa diubah.");
+    }
+  };
+  const downloadInvoice = async (booking) => {
+    try {
+      const response = await api.get(`/invoices/${booking.id}/download`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Invoice-${booking.invoice_number || booking.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Invoice belum bisa diunduh.");
     }
   };
   return (
@@ -138,7 +163,11 @@ const BookingsTab = ({ bookings, packages, additionals, reload }) => {
               <div className="text-sm text-rose-800 mt-1">📍 {b.address}</div>
               {b.maps_link && <a href={b.maps_link} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-rose-600 underline" data-testid={`booking-maps-link-${b.id}`}><ExternalLink size={12} /> Buka lokasi di Google Maps</a>}
             </div>
-            <button onClick={() => del(b.id)} className="text-rose-600 hover:text-red-700"><Trash2 size={18} /></button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setAssignmentBooking(b)} className="rounded-full bg-white/75 p-2 text-rose-700" data-testid={`booking-assign-crew-${b.id}`} aria-label={`Atur Crew ${b.name}`}><Users size={16} /></button>
+              <button onClick={() => downloadInvoice(b)} className="rounded-full bg-white/75 p-2 text-rose-700" data-testid={`booking-download-invoice-${b.id}`} aria-label={`Unduh invoice ${b.name}`}><Download size={16} /></button>
+              <button onClick={() => del(b.id)} className="text-rose-600 hover:text-red-700" data-testid={`booking-delete-${b.id}`} aria-label={`Hapus booking ${b.name}`}><Trash2 size={18} /></button>
+            </div>
           </div>
           <div className="mt-3 grid md:grid-cols-2 gap-4 text-sm">
             <div className="rounded-xl bg-white/60 p-3">
@@ -199,6 +228,14 @@ const BookingsTab = ({ bookings, packages, additionals, reload }) => {
           onSaved={reload}
         />
       )}
+      {assignmentBooking && (
+        <BookingAssignmentsModal
+          booking={assignmentBooking}
+          members={teamMembers}
+          onClose={() => setAssignmentBooking(null)}
+          onSaved={reload}
+        />
+      )}
     </div>
   );
 };
@@ -241,11 +278,10 @@ const CalendarTab = ({ availability, teamCount, reload }) => {
             if (!d) return <div key={i} />;
             const iso = d.toISOString().slice(0,10);
             const record = availability[iso];
-            const operatingDay = isWeekendOrHoliday(iso);
-            const status = operatingDay ? record?.status || "available" : "closed";
-            const selectedSlots = status === "closed"
-              ? "closed"
-              : String(record?.remaining_slots ?? teamCount);
+            const status = record?.status === "full" || record?.status === "limited"
+              ? record.status
+              : "available";
+            const selectedSlots = String(record?.remaining_slots ?? teamCount);
             return (
               <div key={i} className="rounded-xl border border-rose-200 p-2 text-center text-xs bg-white/60">
                 <div className="font-bold text-rose-950">{d.getDate()}</div>
@@ -253,11 +289,9 @@ const CalendarTab = ({ availability, teamCount, reload }) => {
                 <select
                   value={selectedSlots}
                   onChange={(event) => setRemainingSlots(iso, event.target.value)}
-                  disabled={!operatingDay}
                   className="mt-1 w-full rounded bg-white px-1 py-1 text-[10px] text-rose-800"
                   data-testid={`calendar-slots-${iso}`}
                 >
-                  <option value="closed">Tutup</option>
                   {Array.from({ length: teamCount + 1 }, (_, slots) => (
                     <option key={slots} value={slots}>
                       {slots === 0 ? "Penuh" : `${slots} slot`}
@@ -398,7 +432,7 @@ const PortfolioTab = ({ items, reload }) => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between"><h2 className="font-serif-display text-3xl">Kelola Portfolio</h2>
-        <button onClick={() => setEdit({ title:"", couple_name:"", event_date:"", description:"", media_type:"youtube", youtube_url:"", file_path:"", image_paths:[] })}
+        <button onClick={() => setEdit({ title:"", couple_name:"", event_date:"", description:"", media_type:"youtube", youtube_url:"", drive_url:"", file_path:"", image_paths:[] })}
           className="rounded-full bg-rose-600 text-white px-4 py-2" data-testid="add-portfolio"><Plus size={16} className="inline"/> Tambah</button>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
@@ -426,9 +460,12 @@ const PortfolioTab = ({ items, reload }) => {
               <button onClick={()=>setEdit({...edit, media_type:"youtube"})} className={`flex-1 rounded-xl py-2 ${edit.media_type==="youtube"?"bg-rose-600 text-white":"bg-white/70"}`}>YouTube</button>
               <button onClick={()=>setEdit({...edit, media_type:"upload"})} className={`flex-1 rounded-xl py-2 ${edit.media_type==="upload"?"bg-rose-600 text-white":"bg-white/70"}`}>Upload</button>
               <button onClick={()=>setEdit({...edit, media_type:"photo"})} className={`flex-1 rounded-xl py-2 ${edit.media_type==="photo"?"bg-rose-600 text-white":"bg-white/70"}`} data-testid="portfolio-media-photo-button">Foto</button>
+              <button onClick={()=>setEdit({...edit, media_type:"drive"})} className={`flex-1 rounded-xl py-2 ${edit.media_type==="drive"?"bg-rose-600 text-white":"bg-white/70"}`} data-testid="portfolio-media-drive-button">Drive</button>
             </div>
             {edit.media_type === "youtube" ? (
               <input placeholder="YouTube URL" value={edit.youtube_url} onChange={(e)=>setEdit({...edit, youtube_url: e.target.value})} className="w-full rounded-xl px-3 py-2 border border-rose-200 mb-3"/>
+            ) : edit.media_type === "drive" ? (
+              <input placeholder="Google Drive share link" value={edit.drive_url || ""} onChange={(e)=>setEdit({...edit, drive_url: e.target.value})} className="w-full rounded-xl px-3 py-2 border border-rose-200 mb-3" data-testid="portfolio-drive-url-input"/>
             ) : edit.media_type === "upload" ? (
               <input type="file" accept="video/*" onChange={(e)=>setVideoFile(e.target.files?.[0])} className="w-full mb-3"/>
             ) : (

@@ -9,10 +9,17 @@ import math
 import uuid
 import jwt
 import requests
+import bcrypt
+from io import BytesIO
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Literal, Optional
-from datetime import date, datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -26,6 +33,7 @@ EMERGENT_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
 APP_NAME = "sesi-resepsi"
+LOGO_PATH = ROOT_DIR.parent / "frontend" / "public" / "assets" / "logo.webp"
 
 storage_key = None
 
@@ -80,8 +88,13 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
-def make_token(username: str) -> str:
-    payload = {"sub": username, "exp": datetime.now(timezone.utc) + timedelta(days=30)}
+def make_token(username: str, role: str = "admin", crew_member_id: str = "") -> str:
+    payload = {
+        "sub": username,
+        "role": role,
+        "crew_member_id": crew_member_id,
+        "exp": datetime.now(timezone.utc) + timedelta(days=30),
+    }
     return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
 
@@ -90,7 +103,31 @@ def verify_admin(creds: Optional[HTTPAuthorizationCredentials] = Depends(securit
         raise HTTPException(status_code=401, detail="Login dulu ya kak")
     try:
         payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=["HS256"])
+        if payload.get("role", "admin") != "admin":
+            raise HTTPException(status_code=403, detail="Akses khusus admin")
         return payload["sub"]
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="Session expired, login lagi ya")
+
+
+async def verify_crew(creds: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> dict:
+    if not creds:
+        raise HTTPException(status_code=401, detail="Login Crew dulu ya")
+    try:
+        payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=["HS256"])
+        if payload.get("role") != "crew" or not payload.get("crew_member_id"):
+            raise HTTPException(status_code=403, detail="Akses khusus Crew")
+        account = await db.crew_accounts.find_one(
+            {"member_id": payload["crew_member_id"], "active": True},
+            {"_id": 0, "password_hash": 0},
+        )
+        if not account:
+            raise HTTPException(status_code=401, detail="Akun Crew tidak aktif")
+        return account
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=401, detail="Session expired, login lagi ya")
 
@@ -126,6 +163,7 @@ class PortfolioItem(BaseModel):
     description: str = ""
     media_type: str = "youtube"  # youtube | upload
     youtube_url: str = ""
+    drive_url: str = ""
     file_path: str = ""
     image_paths: List[str] = []
     thumbnail: str = ""
@@ -163,6 +201,11 @@ class Booking(BaseModel):
     payment_amount: int
     payment_proof_path: str = ""
     status: str = "pending"
+    payment_method: str = "bank"
+    social_username: str = ""
+    social_platforms: List[str] = []
+    invoice_number: str = ""
+    invoice_token: str = ""
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -184,6 +227,49 @@ class TeamMember(BaseModel):
     description: str
     photo_path: str = ""
     order: int = 0
+
+
+class CrewAccountCreate(BaseModel):
+    member_id: str
+    username: str
+    password: str = Field(min_length=6)
+    active: bool = True
+
+
+class CrewAccountUpdate(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = Field(default=None, min_length=6)
+    active: Optional[bool] = None
+    member_id: Optional[str] = None
+
+
+class CrewAssignmentInput(BaseModel):
+    crew_member_id: str
+    job_title: str = "Crew Acara"
+    notes: str = ""
+
+
+class CrewAssignment(CrewAssignmentInput):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    booking_id: str
+    created_at: str = Field(default_factory=now_iso)
+
+
+class CrewAssignmentBatch(BaseModel):
+    assignments: List[CrewAssignmentInput] = []
+
+
+class PaymentAccount(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    label: str
+    holder: str
+    number: str
+
+
+class PaymentSettings(BaseModel):
+    bank_accounts: List[PaymentAccount] = []
+    ewallet_accounts: List[PaymentAccount] = []
+    qris_image_path: str = ""
 
 
 # ================= AUTH =================
@@ -216,6 +302,43 @@ async def login(req: LoginReq):
 @api_router.get("/auth/me")
 async def me(username: str = Depends(verify_admin)):
     return {"username": username}
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def password_matches(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except ValueError:
+        return False
+
+
+@api_router.post("/auth/crew/login")
+async def crew_login(req: LoginReq):
+    username = req.username.strip().lower()
+    account = await db.crew_accounts.find_one({"username": username, "active": True})
+
+    if not account or not password_matches(req.password, account.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Username atau password Crew salah")
+
+    member = await db.team_members.find_one({"id": account["member_id"]}, {"_id": 0})
+    if not member:
+        raise HTTPException(status_code=401, detail="Data Crew tidak ditemukan")
+
+    token = make_token(member["name"], role="crew", crew_member_id=member["id"])
+    return {
+        "token": token,
+        "username": account["username"],
+        "member": member,
+    }
+
+
+@api_router.get("/auth/crew/me")
+async def crew_me(account: dict = Depends(verify_crew)):
+    member = await db.team_members.find_one({"id": account["member_id"]}, {"_id": 0})
+    return {"username": account["username"], "member": member}
 
 
 # ================= PACKAGES =================
@@ -255,6 +378,23 @@ DEFAULT_TEAM_MEMBERS = [
         "order": 2,
     },
 ]
+
+DEFAULT_PAYMENT_SETTINGS = {
+    "bank_accounts": [
+        {
+            "label": "BSI",
+            "holder": "FIKABI SA'DI MARTYANSYAH",
+            "number": "7310404173",
+        },
+        {
+            "label": "Seabank",
+            "holder": "CASTI RAHAYU",
+            "number": "901820850811",
+        },
+    ],
+    "ewallet_accounts": [],
+    "qris_image_path": "",
+}
 
 
 async def seed_data():
@@ -342,16 +482,6 @@ def availability_status(remaining_slots: int) -> str:
     return "available"
 
 
-def is_operating_day(iso_date: str) -> bool:
-    if iso_date in NATIONAL_HOLIDAYS_2026:
-        return True
-
-    try:
-        return date.fromisoformat(iso_date).weekday() >= 5
-    except ValueError:
-        return False
-
-
 async def clamp_availability_to_team_capacity() -> None:
     capacity = await team_capacity()
     await db.availability.update_many(
@@ -391,8 +521,152 @@ async def update_team_member(
 @api_router.delete("/team/{member_id}")
 async def delete_team_member(member_id: str, username: str = Depends(verify_admin)):
     await db.team_members.delete_one({"id": member_id})
+    await db.crew_accounts.delete_many({"member_id": member_id})
+    await db.crew_assignments.delete_many({"crew_member_id": member_id})
     await clamp_availability_to_team_capacity()
     return {"ok": True}
+
+
+# ================= CREW ACCOUNTS & ASSIGNMENTS =================
+@api_router.get("/crew-accounts")
+async def list_crew_accounts(username: str = Depends(verify_admin)):
+    return await db.crew_accounts.find(
+        {},
+        {"_id": 0, "password_hash": 0},
+    ).sort("username", 1).to_list(100)
+
+
+@api_router.post("/crew-accounts")
+async def create_crew_account(
+    account: CrewAccountCreate,
+    username: str = Depends(verify_admin),
+):
+    member = await db.team_members.find_one({"id": account.member_id}, {"_id": 0})
+    if not member:
+        raise HTTPException(status_code=404, detail="Personel tim tidak ditemukan")
+
+    normalized_username = account.username.strip().lower()
+    exists = await db.crew_accounts.find_one({"username": normalized_username})
+    if exists:
+        raise HTTPException(status_code=409, detail="Username Crew sudah dipakai")
+
+    data = {
+        "id": str(uuid.uuid4()),
+        "member_id": account.member_id,
+        "username": normalized_username,
+        "password_hash": hash_password(account.password),
+        "active": account.active,
+        "created_at": now_iso(),
+    }
+    await db.crew_accounts.insert_one(data)
+    return {key: value for key, value in data.items() if key != "password_hash"}
+
+
+@api_router.put("/crew-accounts/{account_id}")
+async def update_crew_account(
+    account_id: str,
+    update: CrewAccountUpdate,
+    username: str = Depends(verify_admin),
+):
+    data = update.model_dump(exclude_none=True)
+    if "username" in data:
+        data["username"] = data["username"].strip().lower()
+        conflict = await db.crew_accounts.find_one(
+            {"username": data["username"], "id": {"$ne": account_id}},
+        )
+        if conflict:
+            raise HTTPException(status_code=409, detail="Username Crew sudah dipakai")
+    if "password" in data:
+        data["password_hash"] = hash_password(data.pop("password"))
+    if "member_id" in data:
+        member = await db.team_members.find_one({"id": data["member_id"]})
+        if not member:
+            raise HTTPException(status_code=404, detail="Personel tim tidak ditemukan")
+
+    result = await db.crew_accounts.update_one({"id": account_id}, {"$set": data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Akun Crew tidak ditemukan")
+
+    updated = await db.crew_accounts.find_one(
+        {"id": account_id},
+        {"_id": 0, "password_hash": 0},
+    )
+    return updated
+
+
+@api_router.delete("/crew-accounts/{account_id}")
+async def delete_crew_account(account_id: str, username: str = Depends(verify_admin)):
+    await db.crew_accounts.delete_one({"id": account_id})
+    return {"ok": True}
+
+
+@api_router.get("/bookings/{booking_id}/assignments")
+async def list_booking_assignments(
+    booking_id: str,
+    username: str = Depends(verify_admin),
+):
+    return await db.crew_assignments.find(
+        {"booking_id": booking_id},
+        {"_id": 0},
+    ).to_list(100)
+
+
+@api_router.put("/bookings/{booking_id}/assignments")
+async def replace_booking_assignments(
+    booking_id: str,
+    batch: CrewAssignmentBatch,
+    username: str = Depends(verify_admin),
+):
+    booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking tidak ditemukan")
+
+    member_ids = [item.crew_member_id for item in batch.assignments]
+    member_count = await db.team_members.count_documents({"id": {"$in": member_ids}})
+    if member_count != len(set(member_ids)):
+        raise HTTPException(status_code=422, detail="Ada personel tim yang tidak valid")
+
+    await db.crew_assignments.delete_many({"booking_id": booking_id})
+    records = [
+        CrewAssignment(booking_id=booking_id, **item.model_dump()).model_dump()
+        for item in batch.assignments
+    ]
+    response_records = [record.copy() for record in records]
+    if records:
+        await db.crew_assignments.insert_many(records)
+    return response_records
+
+
+@api_router.get("/crew/jobs")
+async def list_crew_jobs(account: dict = Depends(verify_crew)):
+    assignments = await db.crew_assignments.find(
+        {"crew_member_id": account["member_id"]},
+        {"_id": 0},
+    ).to_list(200)
+    jobs = []
+    for assignment in assignments:
+        booking = await db.bookings.find_one(
+            {"id": assignment["booking_id"]},
+            {
+                "_id": 0,
+                "id": 1,
+                "name": 1,
+                "whatsapp": 1,
+                "event_type": 1,
+                "event_date": 1,
+                "event_time": 1,
+                "address": 1,
+                "maps_link": 1,
+                "notes": 1,
+            },
+        )
+        if booking:
+            jobs.append({"assignment": assignment, "booking": booking})
+
+    return sorted(
+        jobs,
+        key=lambda job: (job["booking"]["event_date"], job["booking"]["event_time"]),
+    )
 
 
 # ================= PORTFOLIO =================
@@ -455,6 +729,41 @@ def calculate_transport_cost(distance_km: float, package_name: str) -> int:
     return math.ceil(distance_km - free_radius) * 5000
 
 
+async def reserve_booking_slot(event_date: str) -> dict:
+    capacity = await team_capacity()
+    current = await db.availability.find_one({"date": event_date}, {"_id": 0})
+    remaining_slots = current.get("remaining_slots", capacity) if current else capacity
+
+    if remaining_slots <= 0:
+        raise HTTPException(status_code=409, detail="Tanggal yang dipilih sudah penuh")
+
+    updated_slots = remaining_slots - 1
+    data = {
+        "date": event_date,
+        "remaining_slots": updated_slots,
+        "status": availability_status(updated_slots),
+    }
+    await db.availability.update_one({"date": event_date}, {"$set": data}, upsert=True)
+    return data
+
+
+async def release_booking_slot(event_date: str) -> None:
+    capacity = await team_capacity()
+    current = await db.availability.find_one({"date": event_date}, {"_id": 0})
+    if not current:
+        return
+    remaining_slots = min(current.get("remaining_slots", 0) + 1, capacity)
+    await db.availability.update_one(
+        {"date": event_date},
+        {
+            "$set": {
+                "remaining_slots": remaining_slots,
+                "status": availability_status(remaining_slots),
+            }
+        },
+    )
+
+
 @api_router.get("/bookings")
 async def list_bookings(username: str = Depends(verify_admin)):
     docs = await db.bookings.find({}, {"_id": 0}).sort(
@@ -474,13 +783,23 @@ async def create_booking(b: Booking):
     )
     booking_data["transport_cost"] = transport_cost
     booking_data["total_price"] = b.package_price + additionals_cost + transport_cost
+    booking_data["invoice_number"] = make_invoice_number(b.event_date)
+    booking_data["invoice_token"] = uuid.uuid4().hex
+    await reserve_booking_slot(b.event_date)
     await db.bookings.insert_one(booking_data)
-    return Booking(**booking_data)
+    response_data = Booking(**booking_data).model_dump()
+    response_data["invoice_url"] = (
+        f"/api/invoices/{booking_data['id']}/download?token={booking_data['invoice_token']}"
+    )
+    return response_data
 
 
 @api_router.delete("/bookings/{b_id}")
 async def delete_booking(b_id: str, username: str = Depends(verify_admin)):
-    await db.bookings.delete_one({"id": b_id})
+    booking = await db.bookings.find_one({"id": b_id}, {"_id": 0})
+    if booking:
+        await db.bookings.delete_one({"id": b_id})
+        await release_booking_slot(booking["event_date"])
     return {"ok": True}
 
 
@@ -501,6 +820,159 @@ async def update_booking_completion(
     return {"id": b_id, "status": update.status}
 
 
+def make_invoice_number(event_date: str) -> str:
+    date_part = event_date.replace("-", "") or datetime.now(timezone.utc).strftime("%Y%m%d")
+    return f"SR-{date_part}-{uuid.uuid4().hex[:6].upper()}"
+
+
+async def get_invoice_booking(booking_id: str) -> dict:
+    booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking tidak ditemukan")
+
+    missing = {}
+    if not booking.get("invoice_number"):
+        missing["invoice_number"] = make_invoice_number(booking.get("event_date", ""))
+    if not booking.get("invoice_token"):
+        missing["invoice_token"] = uuid.uuid4().hex
+    if missing:
+        await db.bookings.update_one({"id": booking_id}, {"$set": missing})
+        booking.update(missing)
+    return booking
+
+
+def draw_flower(pdf: canvas.Canvas, x: float, y: float, size: float) -> None:
+    pdf.setFillColor(colors.HexColor("#fda4af"))
+    for dx, dy in [(0, size), (size, 0), (0, -size), (-size, 0)]:
+        pdf.circle(x + dx, y + dy, size * 0.72, fill=1, stroke=0)
+    pdf.setFillColor(colors.HexColor("#e11d48"))
+    pdf.circle(x, y, size * 0.52, fill=1, stroke=0)
+
+
+def build_invoice_pdf(booking: dict) -> bytes:
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    page_width, page_height = A4
+
+    pdf.setFillColor(colors.HexColor("#fff1f2"))
+    pdf.rect(0, 0, page_width, page_height, fill=1, stroke=0)
+    draw_flower(pdf, 28 * mm, page_height - 24 * mm, 7 * mm)
+    draw_flower(pdf, page_width - 30 * mm, 32 * mm, 8 * mm)
+    if LOGO_PATH.exists():
+        pdf.drawImage(
+            ImageReader(str(LOGO_PATH)),
+            22 * mm,
+            page_height - 44 * mm,
+            width=18 * mm,
+            height=18 * mm,
+            mask="auto",
+        )
+
+    pdf.setFillColor(colors.HexColor("#881337"))
+    pdf.setFont("Helvetica-Bold", 21)
+    pdf.drawString(46 * mm, page_height - 30 * mm, "SESI RESEPSI")
+    pdf.setFont("Helvetica", 9)
+    pdf.drawString(46 * mm, page_height - 36 * mm, "Wedding Content Creator & Photographer JABODETABEK")
+    pdf.setFont("Helvetica-Bold", 18)
+    pdf.drawRightString(page_width - 22 * mm, page_height - 30 * mm, "INVOICE")
+    pdf.setFont("Helvetica", 9)
+    pdf.drawRightString(page_width - 22 * mm, page_height - 36 * mm, booking["invoice_number"])
+
+    y = page_height - 62 * mm
+    pdf.setStrokeColor(colors.HexColor("#fda4af"))
+    pdf.line(22 * mm, y, page_width - 22 * mm, y)
+    y -= 12 * mm
+    details = [
+        ("Pasangan", booking.get("name", "-")),
+        ("Acara", booking.get("event_type", "-")),
+        ("Jadwal", f"{booking.get('event_date', '-')} • {booking.get('event_time', '-')}"),
+        ("Lokasi", booking.get("address", "-")),
+        ("Sosial Media", booking.get("social_username", "-")),
+    ]
+    for label, value in details:
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.setFillColor(colors.HexColor("#9f1239"))
+        pdf.drawString(24 * mm, y, f"{label}:")
+        pdf.setFont("Helvetica", 9)
+        pdf.setFillColor(colors.HexColor("#4c0519"))
+        pdf.drawString(58 * mm, y, str(value)[:82])
+        y -= 6 * mm
+
+    y -= 4 * mm
+    pdf.setFillColor(colors.HexColor("#e11d48"))
+    pdf.roundRect(22 * mm, y - 8 * mm, page_width - 44 * mm, 9 * mm, 3 * mm, fill=1, stroke=0)
+    pdf.setFillColor(colors.white)
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(26 * mm, y - 2 * mm, "RINCIAN BOOKING")
+    y -= 18 * mm
+
+    lines = [(booking.get("package_name", "Paket"), booking.get("package_price", 0))]
+    lines.extend(
+        (f"{item.get('name', 'Additional')} x{item.get('qty', 1)}", item.get("subtotal", 0))
+        for item in booking.get("additionals", [])
+    )
+    lines.append(("Transport", booking.get("transport_cost", 0)))
+    for label, amount in lines:
+        pdf.setFont("Helvetica", 10)
+        pdf.setFillColor(colors.HexColor("#4c0519"))
+        pdf.drawString(24 * mm, y, label)
+        pdf.drawRightString(page_width - 24 * mm, y, f"Rp {int(amount):,}".replace(",", "."))
+        y -= 7 * mm
+
+    pdf.setStrokeColor(colors.HexColor("#fda4af"))
+    pdf.line(22 * mm, y, page_width - 22 * mm, y)
+    y -= 9 * mm
+    pdf.setFillColor(colors.HexColor("#881337"))
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(24 * mm, y, "TOTAL")
+    pdf.drawRightString(
+        page_width - 24 * mm,
+        y,
+        f"Rp {int(booking.get('total_price', 0)):,}".replace(",", "."),
+    )
+    y -= 11 * mm
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(24 * mm, y, f"Pembayaran: {booking.get('payment_type', '-').upper()}")
+    pdf.drawRightString(
+        page_width - 24 * mm,
+        y,
+        f"Dibayar: Rp {int(booking.get('payment_amount', 0)):,}".replace(",", "."),
+    )
+    y -= 7 * mm
+    pdf.drawString(24 * mm, y, f"Metode: {booking.get('payment_method', 'bank').upper()}")
+    pdf.setFont("Helvetica-Oblique", 8)
+    pdf.setFillColor(colors.HexColor("#9f1239"))
+    pdf.drawCentredString(page_width / 2, 18 * mm, "Terima kasih telah mempercayakan momenmu pada SESI RESEPSI")
+    pdf.save()
+    return buffer.getvalue()
+
+
+@api_router.get("/invoices/{booking_id}/download")
+async def download_invoice(
+    booking_id: str,
+    token: str = Query(default=""),
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(security),
+):
+    booking = await get_invoice_booking(booking_id)
+    is_admin = False
+    if creds:
+        try:
+            payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=["HS256"])
+            is_admin = payload.get("role", "admin") == "admin"
+        except Exception:
+            is_admin = False
+    if not is_admin and token != booking["invoice_token"]:
+        raise HTTPException(status_code=403, detail="Akses invoice tidak valid")
+
+    pdf_data = build_invoice_pdf(booking)
+    filename = f"Invoice-{booking['invoice_number']}.pdf"
+    return Response(
+        content=pdf_data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ================= AVAILABILITY =================
 @api_router.get("/availability")
 async def list_availability():
@@ -511,37 +983,28 @@ async def list_availability():
 @api_router.post("/availability")
 async def set_availability(a: Availability, username: str = Depends(verify_admin)):
     capacity = await team_capacity()
+    slots = a.remaining_slots
 
-    if not is_operating_day(a.date) and a.status != "closed":
+    if slots is None:
+        legacy_status = a.status or "available"
+        slots = {
+            "available": capacity,
+            "limited": min(1, capacity),
+            "full": 0,
+            "closed": capacity,
+        }.get(legacy_status)
+
+    if slots is None or slots < 0 or slots > capacity:
         raise HTTPException(
             status_code=422,
-            detail="Hari kerja otomatis tutup kecuali tanggal merah.",
+            detail=f"Sisa slot harus di antara 0 dan {capacity}.",
         )
 
-    if a.status == "closed" and a.remaining_slots is None:
-        data = {"date": a.date, "status": "closed", "remaining_slots": 0}
-    else:
-        slots = a.remaining_slots
-
-        if slots is None:
-            legacy_status = a.status or "available"
-            slots = {
-                "available": capacity,
-                "limited": min(1, capacity),
-                "full": 0,
-            }.get(legacy_status)
-
-        if slots is None or slots < 0 or slots > capacity:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Sisa slot harus di antara 0 dan {capacity}.",
-            )
-
-        data = {
-            "date": a.date,
-            "status": availability_status(slots),
-            "remaining_slots": slots,
-        }
+    data = {
+        "date": a.date,
+        "status": availability_status(slots),
+        "remaining_slots": slots,
+    }
 
     await db.availability.update_one({"date": a.date}, {"$set": data}, upsert=True)
     return data
@@ -584,6 +1047,28 @@ async def download_file(path: str):
 
 
 # ================= SITE SETTINGS =================
+@api_router.get("/payment-settings")
+async def get_payment_settings():
+    settings = await db.settings.find_one({"key": "payments"}, {"_id": 0})
+    if settings:
+        settings.pop("key", None)
+        return PaymentSettings(**settings).model_dump()
+
+    defaults = PaymentSettings(**DEFAULT_PAYMENT_SETTINGS).model_dump()
+    await db.settings.insert_one({"key": "payments", **defaults})
+    return defaults
+
+
+@api_router.put("/payment-settings")
+async def update_payment_settings(
+    settings: PaymentSettings,
+    username: str = Depends(verify_admin),
+):
+    data = settings.model_dump()
+    await db.settings.update_one({"key": "payments"}, {"$set": data}, upsert=True)
+    return data
+
+
 class SiteSettings(BaseModel):
     hero_title: str = "SESI RESEPSI"
     hero_subtitle: str = "Wedding Content Creator Jakarta-Bekasi"
@@ -638,6 +1123,7 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 async def startup():
     await seed_data()
+    await db.crew_accounts.create_index("username", unique=True)
     init_storage()
     logger.info("Startup complete")
 
